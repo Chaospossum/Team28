@@ -221,5 +221,13 @@ export function shortlistFallback(shortlist, site, count = 8) {
       site.soil_ph == null
         ? 'Soil pH was estimated nearby — confirm with a soil test.'
         : 'Neighbourhood-scale match; watch pests and drainage locally.',
+    ranges: {
+      tmin: s.tmin,
+      tmax: s.tmax,
+      rmin: s.rmin,
+      rmax: s.rmax,
+      phmin: s.phmin,
+      phmax: s.phmax,
+    },
   }))
 }

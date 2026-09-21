@@ -23,12 +23,22 @@ export interface SiteProfile {
   manual_shade?: boolean
 }
 
+export interface PlantRanges {
+  tmin?: number | null
+  tmax?: number | null
+  rmin?: number | null
+  rmax?: number | null
+  phmin?: number | null
+  phmax?: number | null
+}
+
 export interface PlantRecommendation {
   name: string
   why: string
   water_need: string
   sun_need: string
   risk: string
+  ranges?: PlantRanges
 }
 
 export interface RecommendResponse {
