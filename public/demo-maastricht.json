@@ -1,8 +1,8 @@
 {
   "siteProfile": {
-    "lat": 50.85,
-    "lon": 5.69,
-    "area_m2": 12000,
+    "lat": 50.872,
+    "lon": 5.668,
+    "area_m2": 850,
     "sun_hours_per_day": 4.293355920289035,
     "sun_hours_archive": 7.654900652610442,
     "radiation_mj": 11.506193866374614,
@@ -10,20 +10,23 @@
     "temp_growing_season": 15.90562841530055,
     "climate_period": "2019–2023",
     "sun_class_source": "radiation-based estimate (archive sunshine often inflated)",
-    "soil_ph": 6.2,
-    "clay_pct": 16.3,
-    "sand_pct": 19.7,
-    "soc": 26.8,
-    "soil_type_nl": null,
+    "soil_ph": 6.5,
+    "clay_pct": 16.8,
+    "sand_pct": 15,
+    "soc": 28,
+    "soil_type_nl": "zavel",
     "sun_class": "part shade",
     "texture_class": "loamy",
     "moisture_class": "moderate",
     "sources": [
       "Open-Meteo Archive 2019–2023",
-      "SoilGrids v2.0 (0-5cm, ~6 km offset)"
+      "SoilGrids v2.0 (0-5cm mean)",
+      "PDOK BRO Bodemkaart"
     ],
     "data_resolution_note": "Soil data ≈250 m resolution, climate ≈km scale. Neighbourhood estimate, not a soil test.",
-    "pdok_unavailable": true
+    "pdok_unavailable": false,
+    "soil_distance_km": 0,
+    "soil_resolution_note": "SoilGrids 250 m at plot centroid (measured)"
   },
   "plants": [
     {
