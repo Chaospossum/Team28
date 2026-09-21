@@ -9,6 +9,7 @@ import { filterEcoCrop, loadEcoCrop } from './ecocrop.js'
 import { loadPollinatorCsv, rankWithGoals } from './goals.js'
 import { rankPlants } from './llm.js'
 import { fetchPdokSoilType } from './pdok.js'
+import { fetchPdokWmsMap, warmPdokWmsCache } from './pdokWms.js'
 import { fetchSoilGrids, textureClass } from './soil.js'
 import { suggestGuild, loadInteractions } from './guild.js'
 import { classifySiteContext } from './urban.js'
@@ -103,6 +104,13 @@ app.get('/api/soil', async (req, res) => {
   }
   const soil = await fetchSoilGrids(lat, lon)
   res.json(soil)
+})
+
+app.get('/api/pdok/wms', async (req, res) => {
+  const result = await fetchPdokWmsMap(req.query)
+  if (!result.ok) return res.status(result.status ?? 502).end()
+  res.set('Cache-Control', 'public, max-age=86400')
+  res.type('png').send(result.body)
 })
 
 app.get('/api/pdok', async (req, res) => {
@@ -350,6 +358,21 @@ app.post('/api/guild', async (req, res) => {
   res.json(suggestGuild(shortlist, prefs))
 })
 
-app.listen(PORT, '127.0.0.1', () => {
+const server = app.listen(PORT, '127.0.0.1', () => {
   console.log(`[api] http://127.0.0.1:${PORT}`)
+  if (process.env.PDOK_WARM === '1') {
+    warmPdokWmsCache().catch((err) => {
+      console.warn('[pdok-wms] warm-up failed:', err?.message ?? err)
+    })
+  }
+})
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `[api] Port ${PORT} is already in use. Stop the other dev server, or run: lsof -ti tcp:${PORT} | xargs kill`,
+    )
+    process.exit(1)
+  }
+  throw err
 })

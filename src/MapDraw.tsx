@@ -24,13 +24,8 @@ export interface PlotSelection {
   polygon?: number[][] // [lon, lat] ring
 }
 
-function to3857(lon: number, lat: number) {
-  const x = (lon * 20037508.34) / 180
-  const y =
-    (Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180)) *
-    (20037508.34 / 180)
-  return [x, y]
-}
+/** WMS base URL — tiles load in the browser (cached per tile); no backend proxy required */
+const PDOK_WMS_URL = 'https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0'
 
 /** Inverted: higher radiation → deeper green; lower → amber (not red-green only). */
 function radiationColor(mj: number | null) {
@@ -92,7 +87,7 @@ export function MapDraw({
   const buildingsRef = useRef<L.FeatureGroup | null>(null)
   const plotLayerRef = useRef<L.Polygon | null>(null)
   const buildingIdMap = useRef<Map<L.Layer, string>>(new Map())
-  const pdokRef = useRef<L.ImageOverlay | null>(null)
+  const pdokLayerRef = useRef<L.TileLayer.WMS | null>(null)
   const ndviRef = useRef<L.ImageOverlay | null>(null)
   const onSelectRef = useRef(onSelect)
   const onBuildingsRef = useRef(onBuildingsChange)
@@ -130,29 +125,28 @@ export function MapDraw({
     onBuildingsRef.current(next)
   }
 
-  const updatePdokOverlay = () => {
+  const syncPdokLayer = () => {
     const map = mapRef.current
     if (!map) return
     if (!layers.pdok) {
-      pdokRef.current?.remove()
-      pdokRef.current = null
+      if (pdokLayerRef.current) {
+        map.removeLayer(pdokLayerRef.current)
+        pdokLayerRef.current = null
+      }
       return
     }
-    const b = map.getBounds()
-    const sw = to3857(b.getWest(), b.getSouth())
-    const ne = to3857(b.getEast(), b.getNorth())
-    const url =
-      `https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap` +
-      `&LAYERS=soilarea&STYLES=&CRS=EPSG:3857&FORMAT=image/png&TRANSPARENT=true` +
-      `&WIDTH=512&HEIGHT=512&BBOX=${sw[0]},${sw[1]},${ne[0]},${ne[1]}`
-    const bounds = L.latLngBounds(b.getSouthWest(), b.getNorthEast())
-    if (pdokRef.current) {
-      pdokRef.current.setUrl(url)
-      pdokRef.current.setBounds(bounds)
-    } else {
-      pdokRef.current = L.imageOverlay(url, bounds, { opacity: 0.55, interactive: false }).addTo(
-        map,
-      )
+    if (!pdokLayerRef.current) {
+      pdokLayerRef.current = L.tileLayer.wms(PDOK_WMS_URL, {
+        layers: 'soilarea',
+        format: 'image/png',
+        transparent: true,
+        version: '1.3.0',
+        opacity: 0.55,
+        maxNativeZoom: 18,
+        maxZoom: 19,
+      })
+      pdokLayerRef.current.addTo(map)
+      layerRef.current?.bringToFront()
     }
   }
 
@@ -291,12 +285,11 @@ export function MapDraw({
       emitBuildings()
     })
 
-    map.on('moveend', () => updatePdokOverlay())
-
     mapRef.current = map
     return () => {
       map.remove()
       mapRef.current = null
+      pdokLayerRef.current = null
     }
   }, [demoLat, demoLon, lang])
 
@@ -310,7 +303,7 @@ export function MapDraw({
 
   useEffect(() => {
     if (plotLayerRef.current) stylePlot(plotLayerRef.current)
-    updatePdokOverlay()
+    syncPdokLayer()
     updateNdviOverlay()
   }, [layers, radiationMj])
 
@@ -339,7 +332,7 @@ export function MapDraw({
     const [clon, clat] = c.geometry.coordinates
     onSelectRef.current({ lat: clat, lon: clon, area_m2: area(poly), polygon: ring })
     updateNdviOverlay()
-    updatePdokOverlay()
+    syncPdokLayer()
   }, [triggerDemo, demoLat, demoLon])
 
   useEffect(() => {
@@ -357,7 +350,7 @@ export function MapDraw({
     const [clon, clat] = c.geometry.coordinates
     onSelectRef.current({ lat: clat, lon: clon, area_m2: area(poly), polygon: initialRing })
     updateNdviOverlay()
-    updatePdokOverlay()
+    syncPdokLayer()
   }, [initialRing])
 
   return (
