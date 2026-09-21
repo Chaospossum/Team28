@@ -1,5 +1,22 @@
 # Right Plant, Right Place
 
+**Live demo:** https://chaospossum.github.io/Team28/
+
+| | |
+|---|---|
+| **Team name** | Team 28 |
+| **Team members** | Daniil Liazhdzei, Nicole Duque, Sebastian Steven Alexander van der Chijs |
+| **Track** | Track 02 — AI for Good (Human Centred) |
+| **Project name** | Right Plant, Right Place |
+
+### Short description
+Draw your garden, balcony or facade strip on a map. Right Plant, Right Place combines the local climate (rain and sun, today and projected for 2050) with soil data to recommend plants that will actually thrive there. Every recommendation comes with a plain-language explanation of why it fits, plus the water it needs and a planting calendar.
+
+### What problem we solve
+People want to green their city (more biodiversity, cooler streets, less paving), but most don't know what will grow in *their* spot, so plants die, money is wasted and people give up. Garden-centre advice is generic and ignores local soil and climate change. Maastricht has only 29 trees per 100 residents against a national average of 52 (Gemeente Maastricht). We turn open climate and soil data into site-specific, explained advice anyone can use in under a minute.
+
+---
+
 Draw a garden plot on the map, pull climate and soil data for that spot, and get plant recommendations with structured “why” lines and honest data labels.
 
 ## Prerequisites
