@@ -223,29 +223,6 @@ export default function App() {
         setProfile(siteProfile)
       }
 
-      if (STATIC_HOST) {
-        if (opts?.explicitDemo) {
-          const demo = scenario2050 ? await loadDemo2050Fallback() : await loadDemoFallback()
-          if (demo && !isStale(gen) && !signal.aborted) {
-            setProfile(demo.siteProfile)
-            setPlants(demo.plants)
-            setZonePlants(demo.zonePlants ?? [])
-            setRankingNote('Cached Maastricht demo (static site)')
-            if (!scenario2050) {
-              setPresentProfile(demo.siteProfile)
-              setPresentPlants(demo.plants)
-            }
-          }
-        } else if (!isStale(gen)) {
-          setPlants([])
-          setZonePlants([])
-          setError(t(lang, 'staticNoRanking'))
-          setRankingNote(null)
-        }
-        if (!isStale(gen)) setBusyLabel(null)
-        return null
-      }
-
       setBusyLabel('Soil, climate context, and plant ranking…')
       let enriched = siteProfile
       try {
@@ -396,11 +373,9 @@ export default function App() {
         if (isStale(gen) || signal.aborted) return
         setProfile(climateProfile)
         setPresentProfile(climateProfile)
-        const bag = STATIC_HOST
-          ? null
-          : await fetch(`/api/bag3d?lat=${sel.lat}&lon=${sel.lon}`, { signal })
-              .then((r) => r.json())
-              .catch(() => null)
+        const bag = await fetch(`/api/bag3d?lat=${sel.lat}&lon=${sel.lon}`, { signal })
+          .then((r) => r.json())
+          .catch(() => null)
         if (isStale(gen)) return
         if (bag?.ok) {
           setBag3dNote(
@@ -408,7 +383,7 @@ export default function App() {
           )
         } else setBag3dNote('3DBAG: no data here for this buffer')
         const rec = await finishPlotPipeline(gen, signal, climateProfile, ring, buildingsRef.current)
-        if (rec?.siteProfile && !isStale(gen) && !STATIC_HOST) {
+        if (rec?.siteProfile && !isStale(gen)) {
           const g = await fetch('/api/guild', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -587,8 +562,8 @@ export default function App() {
 
         <header className="demo-header-card">
           <div className="demo-header-top">
-            <a className="demo-brand" href="/">
-              <img src="/brand-mark.svg" alt="" width={36} height={36} />
+            <a className="demo-brand" href={import.meta.env.BASE_URL}>
+              <img src={`${import.meta.env.BASE_URL}brand-mark.svg`} alt="" width={36} height={36} />
               <span>{t(lang, 'title')}</span>
             </a>
             <div className="demo-header-actions">

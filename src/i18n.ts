@@ -109,9 +109,7 @@ const strings: Record<Lang, Record<string, string>> = {
     statBed: 'Bed',
     modeled: 'modeled',
     staticHostBanner:
-      'Static demo (GitHub Pages): live soil ranking and enrich API are unavailable. Use “Load demo plot” for the cached Maastricht example, or run the full app locally with the API.',
-    staticNoRanking:
-      'Plant ranking needs the API (not available on this static site). Load the demo plot or run locally.',
+      'Runs entirely in your browser: soil, climate and plant ranking are fetched live from public data sources. AI-rephrased explanations are off on this site (rule-based EcoCrop ranking).',
   },
   nl: {
     title: 'Juiste plant, juiste plek',
@@ -221,9 +219,7 @@ const strings: Record<Lang, Record<string, string>> = {
     statBed: 'Perceel',
     modeled: 'gemodelleerd',
     staticHostBanner:
-      'Statische demo (GitHub Pages): live bodem/rangschikking-API is niet beschikbaar. Gebruik “Demo-perceel laden” voor Maastricht, of draai de app lokaal met API.',
-    staticNoRanking:
-      'Plantenrangschikking vereist de API (niet op deze statische site). Laad de demo of draai lokaal.',
+      'Draait volledig in je browser: bodem, klimaat en plantenrangschikking worden live uit openbare bronnen opgehaald. AI-herformulering staat uit op deze site (regelgebaseerde EcoCrop-rangschikking).',
   },
   fr: {
     title: 'La bonne plante au bon endroit',
@@ -333,9 +329,7 @@ const strings: Record<Lang, Record<string, string>> = {
     statBed: 'Parcelle',
     modeled: 'modélisé',
     staticHostBanner:
-      'Démo statique (GitHub Pages) : l’API sol/classement n’est pas disponible. Utilisez « Charger la parcelle démo » pour Maastricht, ou lancez l’app en local avec l’API.',
-    staticNoRanking:
-      'Le classement des plantes nécessite l’API (indisponible ici). Chargez la démo ou lancez en local.',
+      'Fonctionne entièrement dans votre navigateur : sol, climat et classement des plantes sont chargés en direct depuis des sources publiques. Les explications reformulées par IA sont désactivées ici (classement EcoCrop par règles).',
   },
   de: {
     title: 'Die richtige Pflanze am richtigen Ort',
@@ -445,9 +439,7 @@ const strings: Record<Lang, Record<string, string>> = {
     statBed: 'Beet',
     modeled: 'modelliert',
     staticHostBanner:
-      'Statische Demo (GitHub Pages): Live-Boden-/Ranking-API nicht verfügbar. „Demo-Beet laden“ für Maastricht oder App lokal mit API starten.',
-    staticNoRanking:
-      'Pflanzen-Ranking braucht die API (hier nicht verfügbar). Demo laden oder lokal ausführen.',
+      'Läuft vollständig im Browser: Boden, Klima und Pflanzenranking werden live aus öffentlichen Quellen geladen. KI-umformulierte Erklärungen sind hier aus (regelbasiertes EcoCrop-Ranking).',
   },
 }
 

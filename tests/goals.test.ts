@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   goalScoreForPlant,
-  loadPollinatorCsv,
   rankWithGoals,
   rangeFactorScore,
   siteSuitability,
 } from '../server/goals.js'
+import { loadPollinatorCsv } from '../server/dataFiles.js'
 
 loadPollinatorCsv()
 

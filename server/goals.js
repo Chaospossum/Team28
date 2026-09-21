@@ -1,13 +1,6 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 let pollinatorMap = new Map()
 
-export function loadPollinatorCsv() {
-  const raw = fs.readFileSync(path.join(__dirname, 'data', 'pollinator_value.csv'), 'utf8')
+export function setPollinatorCsv(raw) {
   pollinatorMap = new Map()
   for (const line of raw.split(/\r?\n/).slice(1)) {
     if (!line.trim()) continue
