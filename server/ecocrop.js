@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { whySentence, buildStructuredWhy } from './why.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CSV_PATH = path.join(__dirname, 'data', 'EcoCrop_DB.csv')
@@ -162,6 +163,14 @@ export function filterEcoCrop(site, cap = 30) {
       rmax,
       phmin,
       phmax,
+      limn: num(row.LIMN),
+      limx: num(row.LIMX),
+      cat: row.CAT,
+      lifo: row.LIFO,
+      lispy: row.LISPA,
+      gmin: num(row.GMIN),
+      gmax: num(row.GMAX),
+      ktmp: num(row.KTMP),
     })
   }
 
@@ -214,7 +223,8 @@ function buildWhy(s, site) {
 export function shortlistFallback(shortlist, site, count = 8) {
   return shortlist.slice(0, count).map((s) => ({
     name: s.name,
-    why: buildWhy(s, site),
+    why: whySentence(buildStructuredWhy(s, site)),
+    why_structured: buildStructuredWhy(s, site),
     water_need: waterNeedFromRain(site.rain_mm_year, s.rmin, s.rmax),
     sun_need: sunNeedFromClass(site.sun_class),
     risk:
@@ -228,6 +238,8 @@ export function shortlistFallback(shortlist, site, count = 8) {
       rmax: s.rmax,
       phmin: s.phmin,
       phmax: s.phmax,
+      limn: s.limn,
+      limx: s.limx,
     },
   }))
 }

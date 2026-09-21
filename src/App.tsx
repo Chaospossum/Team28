@@ -13,7 +13,11 @@ import {
   ShareExport,
   WaterSavingCard,
 } from './Phase5UI'
-import { readShareParams } from './share'
+import { readShareFromUrl } from './share'
+import { defaultPrefs, type SharePayload } from './shareState'
+import { effortHoursLabel } from './effort'
+import { UserGoals } from './UserGoals'
+import { WhyNotPanel } from './WhyNotPanel'
 import type { LoadingKey, PlantRecommendation, RecommendResponse, SiteProfile } from './types'
 
 const DEMO_LAT = 50.85
@@ -69,6 +73,11 @@ export default function App() {
   const [climate2050Note, setClimate2050Note] = useState<string | null>(null)
   const [plantDiff, setPlantDiff] = useState<string | null>(null)
   const [mapLayers, setMapLayers] = useState({ radiation: true, pdok: false, ndvi: false })
+  const [prefs, setPrefs] = useState(defaultPrefs())
+  const [polygonRing, setPolygonRing] = useState<number[][] | null>(null)
+  const [bag3dNote, setBag3dNote] = useState<string | null>(null)
+  const [guildNote, setGuildNote] = useState<string | null>(null)
+  const [restoreRing, setRestoreRing] = useState<number[][] | null>(null)
 
   const setLoad = (key: LoadingKey, on: boolean) =>
     setLoading((prev) => ({ ...prev, [key]: on }))
@@ -91,12 +100,13 @@ export default function App() {
         const res = await fetch('/api/recommend', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            siteProfile: applyShade(siteProfile),
-            saveAsDemo: opts?.saveAsDemo,
-            saveAsDemo2050: opts?.saveAsDemo2050,
-            lang,
-          }),
+        body: JSON.stringify({
+          siteProfile: applyShade(siteProfile),
+          saveAsDemo: opts?.saveAsDemo,
+          saveAsDemo2050: opts?.saveAsDemo2050,
+          lang,
+          prefs,
+        }),
         })
         if (!res.ok) throw new Error(`recommend_${res.status}`)
         const data: RecommendResponse = await res.json()
@@ -128,7 +138,7 @@ export default function App() {
         setLoad('plants', false)
       }
     },
-    [applyShade, lang, scenario2050],
+    [applyShade, lang, prefs, scenario2050],
   )
 
   const enrichAndRecommend = useCallback(
@@ -158,7 +168,8 @@ export default function App() {
   )
 
   const handlePlot = useCallback(
-    async (sel: PlotSelection) => {
+    async (sel: PlotSelection & { polygon?: number[][] }) => {
+      if (sel.polygon) setPolygonRing(sel.polygon)
       setError(null)
       setPlants([])
       setRankingNote(null)
@@ -175,7 +186,22 @@ export default function App() {
         setProfile(climateProfile)
         setPresentProfile(climateProfile)
         setLoad('climate', false)
-        await enrichAndRecommend(climateProfile)
+        const bag = await fetch(`/api/bag3d?lat=${sel.lat}&lon=${sel.lon}`).then((r) => r.json()).catch(() => null)
+        if (bag?.ok) setBag3dNote(`3DBAG: ${bag.buildings.length} buildings in 100 m (measured, ${bag.fetched_at})`)
+        else setBag3dNote('3DBAG: no data here for this buffer')
+        const rec = await enrichAndRecommend(climateProfile)
+        if (rec?.siteProfile) {
+          const g = await fetch('/api/guild', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteProfile: rec.siteProfile, prefs }),
+          }).then((r) => r.json()).catch(() => null)
+          if (g?.plants?.length) {
+            setGuildNote(
+              `Guild (estimate): ${g.plants.slice(0, 6).join(', ')}${g.warn ? ` — ${g.warn}` : ''}`,
+            )
+          }
+        }
       } catch (e) {
         setLoad('climate', false)
         const demo = await loadDemoFallback()
@@ -259,9 +285,24 @@ export default function App() {
   }
 
   useEffect(() => {
-    const shared = readShareParams()
+    const shared = readShareFromUrl()
+    if (shared?.prefs) setPrefs(shared.prefs)
+    if (shared?.polygon) {
+      setPolygonRing(shared.polygon)
+      setRestoreRing(shared.polygon)
+    }
     if (shared?.demo) void loadDemo()
   }, [])
+
+  const sharePayload: SharePayload | null = profile
+    ? {
+        lat: profile.lat,
+        lon: profile.lon,
+        polygon: polygonRing ?? undefined,
+        prefs,
+        demo: false,
+      }
+    : null
 
   return (
     <div className="app">
@@ -270,6 +311,7 @@ export default function App() {
         demoLat={DEMO_LAT}
         demoLon={DEMO_LON}
         triggerDemo={demoTrigger}
+        initialRing={restoreRing}
         radiationMj={profile?.radiation_mj ?? null}
         layers={mapLayers}
       />
@@ -298,7 +340,11 @@ export default function App() {
 
         {error && <div className="error-banner">{error}</div>}
 
+        <UserGoals prefs={prefs} onChange={setPrefs} />
+        <p className="meta note">{effortHoursLabel(prefs)}</p>
         <LayerToggles lang={lang} layers={mapLayers} setLayers={setMapLayers} />
+        {bag3dNote && <p className="meta note">{bag3dNote}</p>}
+        {guildNote && <p className="meta note">{guildNote}</p>}
 
         <div className="card">
           <h2>Data loading</h2>
@@ -350,6 +396,12 @@ export default function App() {
               <dd>{fmt(profile.temp_growing_season, 1)} °C</dd>
               <dt>Soil pH</dt>
               <dd>{fmt(profile.soil_ph, 1)}</dd>
+              {profile.soil_resolution_note && (
+                <>
+                  <dt>Soil source</dt>
+                  <dd className="meta">{profile.soil_resolution_note}</dd>
+                </>
+              )}
               <dt>Clay / sand</dt>
               <dd>{fmt(profile.clay_pct, 0)}% / {fmt(profile.sand_pct, 0)}%</dd>
               <dt>NL grondsoort</dt>
@@ -357,6 +409,18 @@ export default function App() {
                 {profile.soil_type_nl ??
                   (profile.pdok_unavailable ? t(lang, 'noNlSoil') : '—')}
               </dd>
+              {profile.site_context && (
+                <>
+                  <dt>Urban context</dt>
+                  <dd>
+                    {profile.site_context.class}: {profile.site_context.buildingCount100m} buildings
+                    / 100 m (~{Math.round(profile.site_context.builtUpFraction * 100)}% proxy, 3DBAG)
+                  </dd>
+                  {profile.site_context.uhi_note && (
+                    <dd className="meta">{profile.site_context.uhi_note}</dd>
+                  )}
+                </>
+              )}
             </dl>
             <p className="meta">Sources: {profile.sources.join(' · ')}</p>
           </div>
@@ -395,20 +459,29 @@ export default function App() {
                 <div className="plant-card card" key={p.name}>
                   <h3>{p.name}</h3>
                   <p>{p.why}</p>
+                  {p.why_structured && p.why_structured.length > 0 && (
+                    <ul className="why-list compact">
+                      {p.why_structured.map((w) => (
+                        <li key={w.factor} className={w.ok ? 'why-ok' : 'why-bad'}>{w.text}</li>
+                      ))}
+                    </ul>
+                  )}
                   <p className="meta">
                     Water: {p.water_need} · Sun: {p.sun_need}
                   </p>
                   <p className="meta">{t(lang, 'explain')}</p>
                   <ExplainBars profile={profile!} plant={p} />
                   <p className="meta cal-label">{t(lang, 'calendar')}</p>
-                  <PlantCalendarStrip profile={profile!} plant={p} />
+                  <PlantCalendarStrip profile={profile!} plant={p} prefs={prefs} />
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <ShareExport profile={profile} lang={lang} reportRef={reportRef} />
+        {profile && <WhyNotPanel profile={profile} />}
+
+        <ShareExport sharePayload={sharePayload} lang={lang} reportRef={reportRef} />
 
         <p className="honesty">{t(lang, 'honesty')}</p>
       </aside>

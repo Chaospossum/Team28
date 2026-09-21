@@ -30,9 +30,20 @@ function readDiskCache(key) {
   }
 }
 
+const SOILGRIDS_URL =
+  'https://rest.isric.org/soilgrids/v2.0/properties/query'
+
 function writeDiskCache(key, data) {
   const file = path.join(CACHE_DIR, `soil-${key.replace(',', '_')}.json`)
-  fs.writeFileSync(file, JSON.stringify(data))
+  const withMeta = {
+    ...data,
+    _cache: {
+      origin_url: SOILGRIDS_URL,
+      fetched_at: new Date().toISOString().slice(0, 10),
+      query_key: key,
+    },
+  }
+  fs.writeFileSync(file, JSON.stringify(withMeta))
 }
 
 function scaleProperty(layer) {
@@ -102,6 +113,7 @@ function emptySoil() {
 }
 
 function packageResult(result, nearby, offset) {
+  const distKm = nearby ? Math.round(Math.hypot(offset[0], offset[1]) * 111) : 0
   const packaged = {
     ok: hasUsableSoil(result),
     soil_ph: clamp(result.soil_ph, 3, 9),
@@ -110,9 +122,14 @@ function packageResult(result, nearby, offset) {
     soc: result.soc,
     error: hasUsableSoil(result) ? undefined : result.error ?? 'null_values',
     nearby_fallback: nearby,
+    soil_distance_km: nearby ? distKm : 0,
+    soil_resolution_note: nearby
+      ? `SoilGrids 250 m, nearest valid cell ~${distKm} km from plot centroid (measured from ISRIC API)`
+      : 'SoilGrids 250 m at plot centroid (measured)',
     source: nearby
-      ? `SoilGrids v2.0 (0-5cm, ~${Math.round(Math.hypot(offset[0], offset[1]) * 111)} km offset)`
+      ? `SoilGrids v2.0 (0-5cm, ~${distKm} km offset)`
       : 'SoilGrids v2.0 (0-5cm mean)',
+    data_kind: 'measured',
   }
   return packaged
 }

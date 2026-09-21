@@ -32,7 +32,7 @@ export async function fetchClimate2050Profile(
   const rain_mm_year = rains[Math.floor(rains.length / 2)] ?? base.rain_mm_year
   const temp_growing_season =
     growing.length > 0 ? growing.reduce((a, b) => a + b, 0) / growing.length : base.temp_growing_season
-  const radiation_mj = (base.radiation_mj ?? 11.5) * 1.03
+  const radiation_mj = base.radiation_mj ?? null
   const sun_hours_per_day = sunHoursFromRadiation(radiation_mj)
 
   const profile: SiteProfile = {

@@ -8,11 +8,11 @@ function stripFences(text) {
     .trim()
 }
 
-async function callAnthropic(siteProfile, shortlist) {
+async function callAnthropic(siteProfile, shortlist, lang) {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return null
 
-  const prompt = buildPrompt(siteProfile, shortlist)
+  const prompt = buildPrompt(siteProfile, shortlist, lang)
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -32,11 +32,11 @@ async function callAnthropic(siteProfile, shortlist) {
   return parsePlantsJson(text)
 }
 
-async function callOpenAI(siteProfile, shortlist) {
+async function callOpenAI(siteProfile, shortlist, lang) {
   const key = process.env.OPENAI_API_KEY
   if (!key) return null
 
-  const prompt = buildPrompt(siteProfile, shortlist)
+  const prompt = buildPrompt(siteProfile, shortlist, lang)
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -55,9 +55,13 @@ async function callOpenAI(siteProfile, shortlist) {
   return parsePlantsJson(text)
 }
 
-function buildPrompt(siteProfile, shortlist) {
+const LANG_NAMES = { en: 'English', nl: 'Dutch', fr: 'French', de: 'German' }
+
+function buildPrompt(siteProfile, shortlist, lang = 'en') {
   const names = shortlist.map((s) => s.name).join(', ')
+  const language = LANG_NAMES[lang] ?? LANG_NAMES.en
   return `You are a horticulture advisor for home gardeners in Europe.
+Respond in ${language} only.
 
 Site profile (use these exact numbers in your reasons):
 ${JSON.stringify(siteProfile, null, 2)}
@@ -82,14 +86,14 @@ function parsePlantsJson(text) {
   }))
 }
 
-export async function rankPlants(siteProfile, shortlist) {
+export async function rankPlants(siteProfile, shortlist, lang = 'en') {
   if (shortlist.length === 0) {
     return { plants: [], usedLlm: false, source: 'empty_shortlist' }
   }
 
   const tryOnce = async () => {
-    if (process.env.ANTHROPIC_API_KEY) return await callAnthropic(siteProfile, shortlist)
-    if (process.env.OPENAI_API_KEY) return await callOpenAI(siteProfile, shortlist)
+    if (process.env.ANTHROPIC_API_KEY) return await callAnthropic(siteProfile, shortlist, lang)
+    if (process.env.OPENAI_API_KEY) return await callOpenAI(siteProfile, shortlist, lang)
     return null
   }
 
