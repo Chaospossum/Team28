@@ -1,32 +1,46 @@
-# React + TypeScript + Vite
+# Right Plant, Right Place
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Draw a garden plot on the map, pull climate and soil data for that spot, and get eight plant recommendations with plain-language reasons.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js 20+
+- Optional: `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env` for LLM ranking (otherwise EcoCrop + site-aware rule-based reasons)
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+cp .env.example .env   # add API key if you have one
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Run
+
+```bash
+npm run dev
+```
+
+- **App:** http://127.0.0.1:43123  
+- **API:** http://127.0.0.1:43124  
+
+Click **Load demo plot** for Maastricht (50.85°N, 5.69°E) or draw your own polygon.
+
+## Data
+
+| Source | Where |
+|--------|--------|
+| Open-Meteo Archive 2019–2023 | Browser (CORS) |
+| SoilGrids v2.0 | Backend proxy, cache, retries + nearby fallback |
+| PDOK BRO Bodemkaart (bzk WMS, EPSG:28992) | Backend proxy |
+| EcoCrop CSV | Loaded at server startup |
+| LLM | Backend only, optional |
+
+**Sun class** uses a radiation-based hour estimate (MJ÷2.68). Archive `sunshine_duration` is shown for transparency but is often inflated.
+
+**Rain** uses the **median** of annual totals across 2019–2023.
+
+If APIs fail, `public/demo-maastricht.json` is used automatically (also refreshed after a successful demo run).
+
+## Honesty
+
+Soil ≈250 m resolution; climate ≈km scale. Neighbourhood estimate — not a soil test.

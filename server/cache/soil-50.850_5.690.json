@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "soil_ph": 6.2,
+  "clay_pct": 16.3,
+  "sand_pct": 19.7,
+  "soc": 26.8,
+  "nearby_fallback": true,
+  "source": "SoilGrids v2.0 (0-5cm, ~6 km offset)"
+}

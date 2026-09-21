@@ -97,7 +97,7 @@ export async function rankPlants(siteProfile, shortlist) {
     let plants = await tryOnce()
     if (!plants) {
       return {
-        plants: shortlistFallback(shortlist),
+        plants: shortlistFallback(shortlist, siteProfile),
         usedLlm: false,
         source: 'ecocrop_fallback',
       }
@@ -111,7 +111,7 @@ export async function rankPlants(siteProfile, shortlist) {
       /* fall through */
     }
     return {
-      plants: shortlistFallback(shortlist),
+      plants: shortlistFallback(shortlist, siteProfile),
       usedLlm: false,
       source: 'ecocrop_parse_fallback',
     }

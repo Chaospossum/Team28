@@ -6,6 +6,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CACHE_DIR = path.join(__dirname, 'cache')
 
 const memoryCache = new Map()
+const TIMEOUT_MS = 18_000
+
+/** Offsets tried when centroid is null (urban grid gaps) */
+const NEARBY_OFFSETS = [
+  [0.05, 0.01],
+  [0.05, 0],
+  [0, 0.05],
+  [-0.05, 0.01],
+]
 
 function cacheKey(lat, lon) {
   return `${lat.toFixed(3)},${lon.toFixed(3)}`
@@ -29,8 +38,83 @@ function writeDiskCache(key, data) {
 function scaleProperty(layer) {
   const mean = layer?.depths?.[0]?.values?.mean
   if (mean == null) return null
-  const d = layer.d_factor ?? 1
+  const d = layer.unit_measure?.d_factor ?? layer.d_factor ?? 10
   return mean / d
+}
+
+function hasUsableSoil(result) {
+  return result.soil_ph != null || result.clay_pct != null || result.sand_pct != null
+}
+
+function parseSoilJson(json) {
+  const layers = json.properties?.layers ?? []
+  const byName = {}
+  for (const layer of layers) {
+    byName[layer.name] = layer
+  }
+  const soil_ph = scaleProperty(byName.phh2o)
+  const clay_pct = scaleProperty(byName.clay)
+  const sand_pct = scaleProperty(byName.sand)
+  const socRaw = byName.soc?.depths?.[0]?.values?.mean
+  const socFactor = byName.soc?.unit_measure?.d_factor ?? byName.soc?.d_factor ?? 10
+  const soc = socRaw != null ? socRaw / socFactor : null
+  return { soil_ph, clay_pct, sand_pct, soc }
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+async function fetchSoilGridsOnce(lat, lon) {
+  const url =
+    `https://rest.isric.org/soilgrids/v2.0/properties/query?` +
+    `lon=${lon}&lat=${lat}` +
+    `&property=phh2o&property=clay&property=sand&property=soc` +
+    `&depth=0-5cm&value=mean`
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timer)
+    if (res.status === 429) {
+      return { ok: false, error: 'rate_limited', ...emptySoil() }
+    }
+    if (!res.ok) {
+      return { ok: false, error: `http_${res.status}`, ...emptySoil() }
+    }
+    const json = await res.json()
+    const parsed = parseSoilJson(json)
+    return { ok: true, ...parsed, query_lat: lat, query_lon: lon }
+  } catch (err) {
+    clearTimeout(timer)
+    return {
+      ok: false,
+      error: err.name === 'AbortError' ? 'timeout' : String(err.message || err),
+      ...emptySoil(),
+    }
+  }
+}
+
+function emptySoil() {
+  return { soil_ph: null, clay_pct: null, sand_pct: null, soc: null }
+}
+
+function packageResult(result, nearby, offset) {
+  const packaged = {
+    ok: hasUsableSoil(result),
+    soil_ph: clamp(result.soil_ph, 3, 9),
+    clay_pct: clamp(result.clay_pct, 0, 100),
+    sand_pct: clamp(result.sand_pct, 0, 100),
+    soc: result.soc,
+    error: hasUsableSoil(result) ? undefined : result.error ?? 'null_values',
+    nearby_fallback: nearby,
+    source: nearby
+      ? `SoilGrids v2.0 (0-5cm, ~${Math.round(Math.hypot(offset[0], offset[1]) * 111)} km offset)`
+      : 'SoilGrids v2.0 (0-5cm mean)',
+  }
+  return packaged
 }
 
 export async function fetchSoilGrids(lat, lon) {
@@ -42,60 +126,39 @@ export async function fetchSoilGrids(lat, lon) {
     return disk
   }
 
-  const url =
-    `https://rest.isric.org/soilgrids/v2.0/properties/query?` +
-    `lon=${lon}&lat=${lat}` +
-    `&property=phh2o&property=clay&property=sand&property=soc` +
-    `&depth=0-5cm&value=mean`
+  let result = await fetchSoilGridsOnce(lat, lon)
+  if (!hasUsableSoil(result) && result.error === 'rate_limited') {
+    await sleep(2500)
+    result = await fetchSoilGridsOnce(lat, lon)
+  }
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 12_000)
-
-  try {
-    const res = await fetch(url, { signal: controller.signal })
-    clearTimeout(timer)
-    if (res.status === 429) {
-      return { ok: false, error: 'rate_limited', soil_ph: null, clay_pct: null, sand_pct: null, soc: null }
-    }
-    if (!res.ok) {
-      return { ok: false, error: `http_${res.status}`, soil_ph: null, clay_pct: null, sand_pct: null, soc: null }
-    }
-    const json = await res.json()
-    const layers = json.properties?.layers ?? []
-    const byName = {}
-    for (const layer of layers) {
-      byName[layer.name] = layer
-    }
-
-    const soil_ph = scaleProperty(byName.phh2o)
-    const clay_pct = scaleProperty(byName.clay)
-    const sand_pct = scaleProperty(byName.sand)
-    const socRaw = byName.soc?.depths?.[0]?.values?.mean
-    const socFactor = byName.soc?.d_factor ?? 10
-    const soc = socRaw != null ? socRaw / socFactor : null
-
-    const result = {
-      ok: true,
-      soil_ph,
-      clay_pct,
-      sand_pct,
-      soc,
-      source: 'SoilGrids v2.0 (0-5cm mean)',
-    }
-    memoryCache.set(key, result)
-    writeDiskCache(key, result)
-    return result
-  } catch (err) {
-    clearTimeout(timer)
-    return {
-      ok: false,
-      error: err.name === 'AbortError' ? 'timeout' : String(err.message || err),
-      soil_ph: null,
-      clay_pct: null,
-      sand_pct: null,
-      soc: null,
+  let offset = [0, 0]
+  if (!hasUsableSoil(result)) {
+    for (const [dLat, dLon] of NEARBY_OFFSETS) {
+      const nLat = lat + dLat
+      const nLon = lon + dLon
+      const nKey = cacheKey(nLat, nLon)
+      const cached = memoryCache.get(nKey) ?? readDiskCache(nKey)
+      const nearbyResult = cached ?? await fetchSoilGridsOnce(nLat, nLon)
+      if (hasUsableSoil(nearbyResult)) {
+        result = nearbyResult
+        offset = [dLat, dLon]
+        break
+      }
     }
   }
+
+  const packaged = packageResult(result, offset[0] !== 0 || offset[1] !== 0, offset)
+  if (packaged.ok) {
+    memoryCache.set(key, packaged)
+    writeDiskCache(key, packaged)
+  }
+  return packaged
+}
+
+function clamp(v, min, max) {
+  if (v == null) return null
+  return Math.min(max, Math.max(min, v))
 }
 
 export function textureClass(sand_pct, clay_pct) {

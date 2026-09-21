@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
     "dev:web": "vite",
     "dev:server": "node server/index.js",
     "build": "tsc -b && vite build",
@@ -21,6 +21,7 @@
     "express": "^4.21.2",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
+    "proj4": "^2.22.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

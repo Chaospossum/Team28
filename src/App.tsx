@@ -46,13 +46,16 @@ export default function App() {
     return { ...p, sun_class: 'shade', manual_shade: true }
   }, [manualShade])
 
-  const runRecommend = useCallback(async (siteProfile: SiteProfile) => {
+  const runRecommend = useCallback(async (siteProfile: SiteProfile, opts?: { saveAsDemo?: boolean }) => {
     setLoad('plants', true)
     try {
       const res = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteProfile: applyShade(siteProfile) }),
+        body: JSON.stringify({
+          siteProfile: applyShade(siteProfile),
+          saveAsDemo: opts?.saveAsDemo,
+        }),
       })
       if (!res.ok) throw new Error(`recommend_${res.status}`)
       const data: RecommendResponse = await res.json()
@@ -80,7 +83,7 @@ export default function App() {
   }, [applyShade])
 
   const enrichAndRecommend = useCallback(
-    async (base: SiteProfile) => {
+    async (base: SiteProfile, opts?: { saveAsDemo?: boolean }) => {
       setLoad('soil', true)
       setLoad('pdok', true)
       try {
@@ -94,11 +97,13 @@ export default function App() {
         setProfile(data.siteProfile)
         setLoad('soil', false)
         setLoad('pdok', false)
-        await runRecommend(data.siteProfile)
+        await runRecommend(data.siteProfile, opts)
+        return data.siteProfile
       } catch {
         setLoad('soil', false)
         setLoad('pdok', false)
-        await runRecommend(base)
+        await runRecommend(base, opts)
+        return base
       }
     },
     [runRecommend],
@@ -146,12 +151,7 @@ export default function App() {
       )
       setProfile(climateProfile)
       setLoad('climate', false)
-      await enrichAndRecommend(climateProfile)
-      await fetch('/api/recommend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteProfile: climateProfile, saveAsDemo: true }),
-      })
+      await enrichAndRecommend(climateProfile, { saveAsDemo: true })
     } catch {
       const demo = await loadDemoFallback()
       if (demo) {
@@ -173,7 +173,9 @@ export default function App() {
       />
       <aside className="sidebar">
         <h1>Right Plant, Right Place</h1>
-        <p className="subtitle">Draw your plot to match plants to sun, rain, and soil.</p>
+        <p className="subtitle">
+          Draw a garden bed on the map. We match sun, rain, and soil to crops that fit your plot.
+        </p>
 
         <div className="toolbar">
           <button type="button" onClick={loadDemo}>Load demo plot</button>
@@ -207,12 +209,23 @@ export default function App() {
               <dd>{fmt(profile.lat, 4)}°, {fmt(profile.lon, 4)}°</dd>
               <dt>Area</dt>
               <dd>{fmt(profile.area_m2, 0)} m²</dd>
-              <dt>Sunshine</dt>
-              <dd>{fmt(profile.sun_hours_per_day, 2)} h/day ({profile.sun_class})</dd>
+              <dt>Sun (est.)</dt>
+              <dd>
+                {fmt(profile.sun_hours_per_day, 1)} h/day → <strong>{profile.sun_class}</strong>
+              </dd>
               <dt>Radiation</dt>
-              <dd>{fmt(profile.radiation_mj, 2)} MJ/m²/day</dd>
-              <dt>Rain (2023)</dt>
-              <dd>{fmt(profile.rain_mm_year, 0)} mm/yr ({profile.moisture_class})</dd>
+              <dd>{fmt(profile.radiation_mj, 2)} MJ/m²/day (used for sun class)</dd>
+              {profile.sun_hours_archive != null && (
+                <>
+                  <dt>Archive sunshine</dt>
+                  <dd>{fmt(profile.sun_hours_archive, 1)} h/day (often high in model)</dd>
+                </>
+              )}
+              <dt>Rain</dt>
+              <dd>
+                {fmt(profile.rain_mm_year, 0)} mm/yr median ({profile.climate_period ?? 'multi-year'},{' '}
+                {profile.moisture_class})
+              </dd>
               <dt>Growing-season temp</dt>
               <dd>{fmt(profile.temp_growing_season, 1)} °C (Apr–Sep)</dd>
               <dt>Soil pH</dt>
@@ -221,9 +234,17 @@ export default function App() {
               <dd>{fmt(profile.clay_pct, 0)}% / {fmt(profile.sand_pct, 0)}%</dd>
               <dt>Texture</dt>
               <dd>{profile.texture_class}</dd>
-              <dt>NL soil map</dt>
-              <dd>{profile.soil_type_nl ?? '—'}</dd>
+              <dt>NL grondsoort</dt>
+              <dd>
+                {profile.soil_type_nl ??
+                  (profile.pdok_unavailable
+                    ? 'No Dutch soil type at this point'
+                    : '—')}
+              </dd>
             </dl>
+            {profile.sun_class_source && (
+              <p className="meta note">{profile.sun_class_source}</p>
+            )}
             <p className="meta">Sources: {profile.sources.join(' · ')}</p>
           </div>
         )}

@@ -31,7 +31,10 @@ function loadDemo() {
 }
 
 function saveDemo(payload) {
-  fs.writeFileSync(DEMO_PATH, JSON.stringify(payload, null, 2))
+  const json = JSON.stringify(payload, null, 2)
+  fs.writeFileSync(DEMO_PATH, json)
+  const publicPath = path.join(__dirname, '..', 'public', 'demo-maastricht.json')
+  fs.writeFileSync(publicPath, json)
 }
 
 app.get('/api/health', (_req, res) => {
@@ -108,7 +111,8 @@ app.post('/api/enrich', async (req, res) => {
     clay_pct: soil.clay_pct ?? null,
     sand_pct: soil.sand_pct ?? null,
     soc: soil.soc ?? null,
-    soil_type_nl: pdok ?? profile.soil_type_nl ?? null,
+    soil_type_nl: pdok ?? null,
+    pdok_unavailable: !pdok,
     texture_class: textureClass(soil.clay_pct, soil.sand_pct),
     sources: [
       ...(profile.sources ?? []),
