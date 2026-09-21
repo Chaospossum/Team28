@@ -29,9 +29,12 @@ function calendarTraitsFromPlant(plant: PlantRecommendation): string | CalendarP
 export function PlotScoreHero({
   profile,
   lang,
+  embedded = false,
 }: {
   profile: SiteProfile
   lang: Lang
+  /** When true, omit outer card — for use inside site profile panel */
+  embedded?: boolean
 }) {
   const score = computePlotScore(profile)
   const [display, setDisplay] = useState(0)
@@ -50,9 +53,13 @@ export function PlotScoreHero({
   const offset = ring - (display / 100) * ring
   const color = display >= 75 ? '#2d6a4f' : display >= 55 ? '#e9c46a' : '#e76f51'
 
+  const TitleTag = embedded ? 'h3' : 'h2'
+
   return (
-    <div className="card score-hero">
-      <h2>{t(lang, 'plotScore')} <span className="estimate-tag">{t(lang, 'estimate')}</span></h2>
+    <div className={embedded ? 'score-hero score-hero-embedded' : 'card score-hero'}>
+      <TitleTag>
+        {t(lang, 'plotScore')} <span className="estimate-tag">{t(lang, 'estimate')}</span>
+      </TitleTag>
       <div
         className="score-ring-wrap"
         role="img"
@@ -82,6 +89,12 @@ export function PlotScoreHero({
   )
 }
 
+function barMarkerLeft(site: number | null, min: number | null, max: number | null): number {
+  if (site == null || min == null || max == null) return 50
+  const span = max - min || 1
+  return Math.min(98, Math.max(2, ((site - min) / span) * 100))
+}
+
 export function ExplainBars({
   profile,
   plant,
@@ -98,9 +111,7 @@ export function ExplainBars({
           <div className={`bar-track bar-${b.status}`}>
             <div
               className="bar-site"
-              style={{
-                left: `${Math.min(95, Math.max(5, ((b.site ?? 0) / ((b.max ?? 1) * 1.2)) * 100))}%`,
-              }}
+              style={{ left: `${barMarkerLeft(b.site, b.min, b.max)}%` }}
             />
           </div>
           <span className="bar-meta">
@@ -175,10 +186,12 @@ export function ShareExport({
   sharePayload,
   lang,
   reportRef,
+  prominent = false,
 }: {
   sharePayload: SharePayload | null
   lang: Lang
   reportRef: React.RefObject<HTMLElement | null>
+  prominent?: boolean
 }) {
   const copyLink = async () => {
     if (!sharePayload) return
@@ -228,10 +241,12 @@ export function ShareExport({
   }
 
   return (
-    <div className="card">
+    <div className={`card share-export-card${prominent ? ' share-export-prominent' : ''}`}>
       <h2>{t(lang, 'share')}</h2>
-      <div className="toolbar">
-        <button type="button" className="secondary" onClick={() => void copyLink()} disabled={!sharePayload}>
+      <p className="share-export-lead">{t(lang, sharePayload ? 'sharePrompt' : 'drawPlotHint')}</p>
+      {sharePayload && <p className="share-export-blurb meta">{t(lang, 'shareBlurb')}</p>}
+      <div className="toolbar share-export-actions">
+        <button type="button" className="share-primary" onClick={() => void copyLink()} disabled={!sharePayload}>
           {t(lang, 'copyLink')}
         </button>
         <button type="button" className="secondary" onClick={() => void exportPdf()} disabled={!sharePayload}>
@@ -281,6 +296,28 @@ function Phase5A11yStyles() {
   )
 }
 
+const FACTOR_LABEL: Record<string, string> = {
+  temperature: 'factorTemp',
+  rainfall: 'factorRain',
+  ph: 'factorPh',
+  light: 'factorLight',
+}
+
+function factorLabel(lang: Lang, factor: string) {
+  const key = FACTOR_LABEL[factor]
+  return key ? t(lang, key) : factor
+}
+
+function splitWhyText(text: string) {
+  const stripped = text.replace(/^(Accepted|Rejected):\s*/i, '')
+  const paren = stripped.indexOf('(')
+  if (paren === -1) return { value: stripped, source: '' }
+  return {
+    value: stripped.slice(0, paren).trim(),
+    source: stripped.slice(paren).trim(),
+  }
+}
+
 export function RecommendedPlantsSection({
   profile,
   plants,
@@ -297,36 +334,58 @@ export function RecommendedPlantsSection({
   onSelectPlant: (p: PlantRecommendation) => void
 }) {
   return (
-    <section className="plants-hero card" aria-labelledby="plants-heading">
+    <section className="plants-hero" aria-labelledby="plants-heading">
       <Phase5A11yStyles />
-      <h2 id="plants-heading">{t(lang, 'recommended')}</h2>
-      {rankingNote && <p className="meta meta-contrast">{rankingNote}</p>}
+      <h2 id="plants-heading" className="demo-plants-title">
+        {t(lang, 'recommended')}
+      </h2>
+      {rankingNote && <p className="plants-ranking-note">{rankingNote}</p>}
       <div className="plant-grid">
         {plants.map((p) => (
           <article className="plant-card card" key={p.name}>
-            <button
-              type="button"
-              className="plant-card-btn"
-              onClick={() => onSelectPlant(p)}
-              aria-label={`${t(lang, 'selectPlant')} ${p.name}`}
-            >
-              <h3>{p.name}</h3>
-              <p>{p.why}</p>
-            </button>
-            {p.why_structured && p.why_structured.length > 0 && (
-              <ul className="why-list compact">
-                {p.why_structured.map((w) => (
-                  <li key={w.factor} className={w.ok ? 'why-ok' : 'why-bad'}>{w.text}</li>
-                ))}
+            <header className="plant-card-head">
+              <button
+                type="button"
+                className="plant-card-btn"
+                onClick={() => onSelectPlant(p)}
+                aria-label={`${t(lang, 'selectPlant')} ${p.name}`}
+              >
+                <h3>{p.name}</h3>
+              </button>
+              <div className="plant-chip-row">
+                <span className="plant-chip">{p.water_need}</span>
+                <span className="plant-chip">{p.sun_need}</span>
+              </div>
+            </header>
+
+            {p.why_structured && p.why_structured.length > 0 ? (
+              <ul className="plant-why-lines">
+                {p.why_structured.map((w) => {
+                  const { value, source } = splitWhyText(w.text)
+                  return (
+                    <li key={w.factor} className={w.ok ? 'why-ok' : 'why-bad'}>
+                      <span className="why-line-label">{factorLabel(lang, w.factor)}</span>
+                      <span className="why-line-body">
+                        <span className="why-line-value">{value}</span>
+                        {source ? <span className="why-line-source">{source}</span> : null}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
+            ) : (
+              <p className="plant-why-fallback">{p.why}</p>
             )}
-            <p className="meta meta-contrast">
-              {t(lang, 'waterNeed')}: {p.water_need} · {t(lang, 'sunNeed')}: {p.sun_need}
-            </p>
-            <p className="meta meta-contrast">{t(lang, 'explain')}</p>
-            <ExplainBars profile={profile} plant={p} />
-            <p className="meta meta-contrast cal-label">{t(lang, 'calendar')}</p>
-            <PlantCalendarStrip profile={profile} plant={p} prefs={prefs} />
+
+            <div className="plant-card-block">
+              <h4 className="plant-block-title">{t(lang, 'explain')}</h4>
+              <ExplainBars profile={profile} plant={p} />
+            </div>
+
+            <div className="plant-card-block">
+              <h4 className="plant-block-title">{t(lang, 'calendar')}</h4>
+              <PlantCalendarStrip profile={profile} plant={p} prefs={prefs} />
+            </div>
           </article>
         ))}
       </div>

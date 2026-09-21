@@ -1,6 +1,6 @@
 # Cold run (2026-09-21)
 
-| Step | Maastricht 50.85, 5.69 | Rural 50.80, 5.85 |
+| Step | Maastricht demo 50.872, 5.668 | Rural 50.80, 5.85 |
 |------|------------------------|-------------------|
 | Open-Meteo archive | ~1–3 s | ~1–3 s |
 | SoilGrids enrich | ~8–25 s | ~8–25 s |

@@ -41,7 +41,7 @@ npm test
 - **App:** http://127.0.0.1:43123  
 - **API:** http://127.0.0.1:43124  
 
-Click **Load demo plot** for Maastricht (50.85°N, 5.69°E) or draw your own polygon. Share links encode polygon + goals (`?s=` lz-string).
+Click **Load demo plot** for west Maastricht (50.872°N, 5.668°E — PDOK + SoilGrids at centroid) or draw your own polygon. Share links encode polygon + goals (`?s=` lz-string).
 
 ## Data (verified live or cache — see `docs/DATA_SOURCES.md`)
 

@@ -4,5 +4,6 @@ dist
 server/cache/*
 !server/cache/.gitkeep
 !server/cache/soil-50.850_5.690.json
+!server/cache/soil-50.872_5.668.json
 .DS_Store
 *.log

@@ -2,7 +2,7 @@ import L from 'leaflet'
 import 'leaflet-draw'
 import 'leaflet-draw/dist/leaflet.draw.css'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import area from '@turf/area'
 import centroid from '@turf/centroid'
 import { polygon as turfPolygon } from '@turf/helpers'
@@ -26,6 +26,24 @@ export interface PlotSelection {
 
 /** WMS base URL — tiles load in the browser (cached per tile); no backend proxy required */
 const PDOK_WMS_URL = 'https://service.pdok.nl/bzk/bro-bodemkaart/wms/v1_0'
+
+/** Finished bed polygon — light outline, soft fill */
+const PLOT_SHAPE = {
+  color: '#dcf16a',
+  weight: 1.5,
+  opacity: 0.95,
+  fillColor: '#3d6b54',
+  fillOpacity: 0.2,
+  lineJoin: 'round' as const,
+  lineCap: 'round' as const,
+}
+
+/** While drawing (leaflet-draw preview) */
+const PLOT_DRAW_SHAPE = {
+  ...PLOT_SHAPE,
+  dashArray: '6 4',
+  fillOpacity: 0.12,
+}
 
 /** Inverted: higher radiation → deeper green; lower → amber (not red-green only). */
 function radiationColor(mj: number | null) {
@@ -57,31 +75,80 @@ function rectangleToRing(layer: L.Rectangle): number[][] {
   ]
 }
 
+export interface MapDrawHandle {
+  startPlotDraw: () => void
+}
+
 interface Props {
   onSelect: (sel: PlotSelection) => void
+  viewLat: number
+  viewLon: number
+  viewZoom: number
   demoLat: number
   demoLon: number
   triggerDemo: number
   initialRing?: number[][] | null
   initialBuildings?: PlotBuilding[] | null
   onBuildingsChange: (b: PlotBuilding[]) => void
+  onPlotRemoved?: () => void
   radiationMj: number | null
   layers: { radiation: boolean; pdok: boolean; ndvi: boolean }
   lang?: Lang
 }
 
-export function MapDraw({
-  onSelect,
-  demoLat,
-  demoLon,
-  triggerDemo,
-  initialRing,
-  initialBuildings,
-  onBuildingsChange,
-  radiationMj,
-  layers,
-  lang = 'en',
-}: Props) {
+function applyDrawLocale(lang: Lang) {
+  const bed = t(lang, 'drawBedButton')
+  const plotTip = t(lang, 'drawPlot')
+  const buildingTip = t(lang, 'drawBuilding')
+  const local = L.drawLocal as {
+    draw?: {
+      toolbar?: { buttons?: Record<string, string>; actions?: { title?: string } }
+      handlers?: {
+        polygon?: { tooltip?: { start?: string; cont?: string; end?: string } }
+        rectangle?: { tooltip?: { start?: string; cont?: string; end?: string } }
+      }
+    }
+    edit?: {
+      toolbar?: { buttons?: Record<string, string>; actions?: { save?: { title?: string } } }
+    }
+  }
+  if (local.draw?.toolbar?.buttons) {
+    local.draw.toolbar.buttons.polygon = bed
+  }
+  if (local.draw?.handlers?.polygon?.tooltip) {
+    local.draw.handlers.polygon.tooltip.start = plotTip
+    local.draw.handlers.polygon.tooltip.cont = plotTip
+    local.draw.handlers.polygon.tooltip.end = plotTip
+  }
+  if (local.draw?.handlers?.rectangle?.tooltip) {
+    local.draw.handlers.rectangle.tooltip.start = buildingTip
+    local.draw.handlers.rectangle.tooltip.cont = buildingTip
+    local.draw.handlers.rectangle.tooltip.end = buildingTip
+  }
+  if (local.edit?.toolbar?.buttons) {
+    local.edit.toolbar.buttons.edit = t(lang, 'drawPlot')
+  }
+}
+
+export const MapDraw = forwardRef<MapDrawHandle, Props>(function MapDraw(
+  {
+    onSelect,
+    viewLat,
+    viewLon,
+    viewZoom,
+    demoLat,
+    demoLon,
+    triggerDemo,
+    initialRing,
+    initialBuildings,
+    onBuildingsChange,
+    onPlotRemoved,
+    radiationMj,
+    layers,
+    lang = 'en',
+  },
+  ref,
+) {
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.FeatureGroup | null>(null)
   const buildingsRef = useRef<L.FeatureGroup | null>(null)
@@ -91,19 +158,55 @@ export function MapDraw({
   const ndviRef = useRef<L.ImageOverlay | null>(null)
   const onSelectRef = useRef(onSelect)
   const onBuildingsRef = useRef(onBuildingsChange)
+  const onPlotRemovedRef = useRef(onPlotRemoved)
   const buildingsStateRef = useRef<PlotBuilding[]>([])
+  const layersRef = useRef(layers)
+  const radiationMjRef = useRef(radiationMj)
   onSelectRef.current = onSelect
   onBuildingsRef.current = onBuildingsChange
+  onPlotRemovedRef.current = onPlotRemoved
+  layersRef.current = layers
+  radiationMjRef.current = radiationMj
+
+  useImperativeHandle(ref, () => ({
+    startPlotDraw() {
+      const map = mapRef.current
+      if (!map) return
+      const root = map.getContainer()
+      root.querySelector<HTMLElement>('.leaflet-draw-actions a.leaflet-draw-action-cancel')?.click()
+      const polygonBtn = root.querySelector<HTMLElement>(
+        '.leaflet-draw-toolbar:not(.leaflet-draw-toolbar-top) a.leaflet-draw-draw-polygon, .leaflet-draw-draw-polygon',
+      )
+      if (polygonBtn) {
+        polygonBtn.click()
+        map.getContainer().focus()
+        return
+      }
+      new L.Draw.Polygon(map as L.DrawMap, {
+        allowIntersection: false,
+        showArea: false,
+        shapeOptions: { ...PLOT_DRAW_SHAPE },
+      }).enable()
+    },
+  }))
 
   const stylePlot = (layer: L.Polygon) => {
-    const fill = layers.radiation ? radiationColor(radiationMj) : '#52b788'
+    const ly = layersRef.current
+    const mj = radiationMjRef.current
+    const fill = ly.radiation ? radiationColor(mj) : '#52b788'
     layer.setStyle({
-      color: '#1b4332',
-      weight: layers.radiation ? radiationWeight(radiationMj) : 2,
-      dashArray: layers.radiation && (radiationMj ?? 11) < 11 ? '4 3' : undefined,
+      ...PLOT_SHAPE,
+      color: ly.radiation ? fill : PLOT_SHAPE.color,
+      weight: ly.radiation ? Math.min(2, radiationWeight(mj) + 0.5) : PLOT_SHAPE.weight,
+      dashArray: ly.radiation && (mj ?? 11) < 11 ? '5 4' : undefined,
       fillColor: fill,
-      fillOpacity: layers.radiation ? 0.45 : 0.25,
+      fillOpacity: ly.radiation ? 0.28 : PLOT_SHAPE.fillOpacity,
     })
+  }
+
+  const bringDrawnLayersToFront = () => {
+    layerRef.current?.bringToFront()
+    buildingsRef.current?.bringToFront()
   }
 
   const emitBuildings = () => {
@@ -128,7 +231,8 @@ export function MapDraw({
   const syncPdokLayer = () => {
     const map = mapRef.current
     if (!map) return
-    if (!layers.pdok) {
+    const ly = layersRef.current
+    if (!ly.pdok) {
       if (pdokLayerRef.current) {
         map.removeLayer(pdokLayerRef.current)
         pdokLayerRef.current = null
@@ -141,20 +245,22 @@ export function MapDraw({
         format: 'image/png',
         transparent: true,
         version: '1.3.0',
-        opacity: 0.55,
+        opacity: 0.62,
         maxNativeZoom: 18,
         maxZoom: 19,
+        zIndex: 250,
       })
       pdokLayerRef.current.addTo(map)
-      layerRef.current?.bringToFront()
     }
+    bringDrawnLayersToFront()
   }
 
   const updateNdviOverlay = () => {
     const map = mapRef.current
     const plot = plotLayerRef.current
     if (!map) return
-    if (!layers.ndvi || !plot) {
+    const ly = layersRef.current
+    if (!ly.ndvi || !plot) {
       ndviRef.current?.remove()
       ndviRef.current = null
       return
@@ -168,6 +274,7 @@ export function MapDraw({
         map,
       )
     }
+    bringDrawnLayersToFront()
   }
 
   const syncBuildingLayers = (list: PlotBuilding[]) => {
@@ -188,21 +295,11 @@ export function MapDraw({
   }
 
   useEffect(() => {
-    const local = L.drawLocal as {
-      draw?: { handlers?: { polygon?: { tooltip?: { start?: string; cont?: string; end?: string } }; rectangle?: { tooltip?: { start?: string; cont?: string; end?: string } } } }
-    }
-    if (local.draw?.handlers?.polygon?.tooltip) {
-      local.draw.handlers.polygon.tooltip.start = t(lang, 'drawPlot')
-      local.draw.handlers.polygon.tooltip.cont = t(lang, 'drawPlot')
-      local.draw.handlers.polygon.tooltip.end = t(lang, 'drawPlot')
-    }
-    if (local.draw?.handlers?.rectangle?.tooltip) {
-      local.draw.handlers.rectangle.tooltip.start = t(lang, 'drawBuilding')
-      local.draw.handlers.rectangle.tooltip.cont = t(lang, 'drawBuilding')
-      local.draw.handlers.rectangle.tooltip.end = t(lang, 'drawBuilding')
-    }
+    applyDrawLocale(lang)
+  }, [lang])
 
-    const map = L.map('map', { center: [demoLat, demoLon], zoom: 14 })
+  useEffect(() => {
+    const map = L.map('map', { center: [viewLat, viewLon], zoom: viewZoom })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap',
       maxZoom: 19,
@@ -215,9 +312,16 @@ export function MapDraw({
     layerRef.current = drawn
     buildingsRef.current = buildingsGroup
 
+    const plotPolygonOptions = {
+      allowIntersection: false,
+      /** leaflet-draw 1.0.4 throws in strict mode when showArea calls readableArea (undeclared `type`) */
+      showArea: false,
+      shapeOptions: { ...PLOT_DRAW_SHAPE },
+    }
+
     const drawControl = new L.Control.Draw({
       draw: {
-        polygon: { allowIntersection: false, showArea: true },
+        polygon: plotPolygonOptions,
         rectangle: false,
         polyline: false,
         circle: false,
@@ -251,6 +355,7 @@ export function MapDraw({
       const area_m2 = area(poly)
       const ring = gj.geometry.coordinates[0] as number[][]
       onSelectRef.current({ lat, lon, area_m2, polygon: ring })
+      syncPdokLayer()
       updateNdviOverlay()
     }
 
@@ -281,17 +386,29 @@ export function MapDraw({
     })
 
     map.on(L.Draw.Event.DELETED, () => {
-      drawn.eachLayer((layer) => emitFromLayer(layer as L.Polygon))
+      let plotLeft = false
+      drawn.eachLayer((layer) => {
+        if (layer instanceof L.Polygon) {
+          plotLeft = true
+          emitFromLayer(layer)
+        }
+      })
+      if (!plotLeft) {
+        plotLayerRef.current = null
+        updateNdviOverlay()
+        onPlotRemovedRef.current?.()
+      }
       emitBuildings()
     })
 
     mapRef.current = map
+    syncPdokLayer()
     return () => {
       map.remove()
       mapRef.current = null
       pdokLayerRef.current = null
     }
-  }, [demoLat, demoLon, lang])
+  }, [viewLat, viewLon, viewZoom])
 
   useEffect(() => {
     if (initialBuildings?.length) {
@@ -311,7 +428,7 @@ export function MapDraw({
     if (!triggerDemo || !mapRef.current || !layerRef.current) return
     const map = mapRef.current
     const drawn = layerRef.current
-    const size = 0.0012
+    const size = 0.00042
     const lat = demoLat
     const lon = demoLon
     const ring = [
@@ -326,7 +443,7 @@ export function MapDraw({
     drawn.addLayer(layer)
     plotLayerRef.current = layer
     stylePlot(layer)
-    map.fitBounds(layer.getBounds(), { padding: [40, 40] })
+    map.fitBounds(layer.getBounds(), { padding: [56, 56], maxZoom: 16 })
     const poly = turfPolygon([ring])
     const c = centroid(poly)
     const [clon, clat] = c.geometry.coordinates
@@ -344,7 +461,7 @@ export function MapDraw({
     drawn.addLayer(layer)
     plotLayerRef.current = layer
     stylePlot(layer)
-    map.fitBounds(layer.getBounds(), { padding: [40, 40] })
+    map.fitBounds(layer.getBounds(), { padding: [56, 56], maxZoom: 16 })
     const poly = turfPolygon([initialRing])
     const c = centroid(poly)
     const [clon, clat] = c.geometry.coordinates
@@ -364,4 +481,4 @@ export function MapDraw({
       )}
     </div>
   )
-}
+})

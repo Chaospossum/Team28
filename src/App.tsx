@@ -4,10 +4,11 @@ import './App.css'
 import { fetchClimate2050Profile } from './climate2050'
 import { fetchClimateProfile, sunClass } from './climate'
 import type { Lang } from './i18n'
-import { t } from './i18n'
-import { MapDraw, type PlotSelection } from './MapDraw'
+import { t, tFormat } from './i18n'
+import { MapDraw, type MapDrawHandle, type PlotSelection } from './MapDraw'
 import {
   LayerToggles,
+  PlotScoreHero,
   RecommendedPlantsSection,
   ShareExport,
   SunHeatmapCard,
@@ -23,6 +24,7 @@ import { FungiPanel } from './FungiPanel'
 import { WhyNotPanel } from './WhyNotPanel'
 import { clearSkyFractionFromProfile } from './shadow/clearSky'
 import type { SunGridResult } from './shadow/gridCore'
+import { DEMO_AREA_M2, DEMO_LAT, DEMO_LON, demoPlotRing } from './demoLocation'
 import type {
   PlotBuilding,
   PlantRecommendation,
@@ -31,8 +33,10 @@ import type {
   SunZonePlants,
 } from './types'
 
-const DEMO_LAT = 50.85
-const DEMO_LON = 5.69
+/** Default map view: Limburg (province), zoomed out */
+const MAP_VIEW_LAT = 51.35
+const MAP_VIEW_LON = 5.93
+const MAP_VIEW_ZOOM = 9
 
 function fmt(n: number | null, digits = 1) {
   if (n == null || Number.isNaN(n)) return '—'
@@ -65,12 +69,21 @@ async function loadDemo2050Fallback(): Promise<RecommendResponse | null> {
 
 export default function App() {
   const reportRef = useRef<HTMLDivElement>(null)
+  const mapSectionRef = useRef<HTMLDivElement>(null)
+  const mapDrawRef = useRef<MapDrawHandle>(null)
+
+  const scrollToMap = useCallback(() => {
+    mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
   const [lang, setLang] = useState<Lang>('en')
   const [demoTrigger, setDemoTrigger] = useState(0)
   const [busyLabel, setBusyLabel] = useState<string | null>(null)
   const plotGenRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
   const buildingsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prefsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const buildingsRef = useRef<PlotBuilding[]>([])
+  const canReRankRef = useRef(false)
   const [profile, setProfile] = useState<SiteProfile | null>(null)
   const [presentProfile, setPresentProfile] = useState<SiteProfile | null>(null)
   const [plants, setPlants] = useState<PlantRecommendation[]>([])
@@ -81,13 +94,17 @@ export default function App() {
   const [scenario2050, setScenario2050] = useState(false)
   const [climate2050Note, setClimate2050Note] = useState<string | null>(null)
   const [plantDiff, setPlantDiff] = useState<string | null>(null)
-  const [mapLayers, setMapLayers] = useState({ radiation: true, pdok: false, ndvi: false })
+  const [mapLayers, setMapLayers] = useState({ radiation: true, pdok: true, ndvi: true })
+  const toggleMapLayer = (key: 'radiation' | 'pdok' | 'ndvi') => {
+    setMapLayers((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
   const [prefs, setPrefs] = useState(defaultPrefs())
   const [polygonRing, setPolygonRing] = useState<number[][] | null>(null)
   const [bag3dNote, setBag3dNote] = useState<string | null>(null)
   const [guildNote, setGuildNote] = useState<string | null>(null)
   const [restoreRing, setRestoreRing] = useState<number[][] | null>(null)
   const [buildings, setBuildings] = useState<PlotBuilding[]>([])
+  buildingsRef.current = buildings
   const [initialBuildings, setInitialBuildings] = useState<PlotBuilding[] | null>(null)
   const [sunGrid, setSunGrid] = useState<SunGridResult | null>(null)
   const [zonePlants, setZonePlants] = useState<SunZonePlants[]>([])
@@ -229,6 +246,7 @@ export default function App() {
         setProfile(data.siteProfile)
         setPlants(data.plants)
         setZonePlants(data.zonePlants ?? [])
+        canReRankRef.current = true
         if (!scenario2050) {
           setPresentProfile(data.siteProfile)
           setPresentPlants(data.plants)
@@ -261,6 +279,9 @@ export default function App() {
     [applyShade, lang, prefs, runSunGridWorker, scenario2050],
   )
 
+  const finishPlotPipelineRef = useRef(finishPlotPipeline)
+  finishPlotPipelineRef.current = finishPlotPipeline
+
   const clearApp = useCallback(() => {
     abortRef.current?.abort()
     plotGenRef.current += 1
@@ -284,14 +305,35 @@ export default function App() {
     setBag3dNote(null)
     setSelectedPlant(null)
     setManualShade(false)
+    canReRankRef.current = false
     window.history.replaceState({}, '', window.location.pathname)
+  }, [])
+
+  const handlePlotRemoved = useCallback(() => {
+    abortRef.current?.abort()
+    plotGenRef.current += 1
+    setBusyLabel(null)
+    setPolygonRing(null)
+    setPlants([])
+    setPresentPlants([])
+    setZonePlants([])
+    setSunGrid(null)
+    setProfile(null)
+    setPresentProfile(null)
+    setRankingNote(null)
+    setSelectedPlant(null)
+    setError(null)
+    setScenario2050(false)
+    setClimate2050Note(null)
+    setPlantDiff(null)
+    canReRankRef.current = false
   }, [])
 
   const handlePlot = useCallback(
     async (sel: PlotSelection & { polygon?: number[][] }) => {
       const { gen, signal } = beginPlotSession()
-      const ring = sel.polygon ?? polygonRing
-      if (sel.polygon) setPolygonRing(sel.polygon)
+      const ring = sel.polygon?.length ? sel.polygon : polygonRing
+      if (sel.polygon?.length) setPolygonRing(sel.polygon)
       setError(null)
       setPlants([])
       setRankingNote(null)
@@ -317,7 +359,7 @@ export default function App() {
             `3DBAG: ${bag.buildings.length} buildings in 100 m (measured, ${bag.fetched_at})`,
           )
         } else setBag3dNote('3DBAG: no data here for this buffer')
-        const rec = await finishPlotPipeline(gen, signal, climateProfile, ring, buildings)
+        const rec = await finishPlotPipeline(gen, signal, climateProfile, ring, buildingsRef.current)
         if (rec?.siteProfile && !isStale(gen)) {
           const g = await fetch('/api/guild', {
             method: 'POST',
@@ -348,7 +390,7 @@ export default function App() {
         }
       }
     },
-    [buildings, finishPlotPipeline, polygonRing, prefs],
+    [finishPlotPipeline, polygonRing, prefs],
   )
 
   const profileForShadowRef = useRef(profile)
@@ -363,12 +405,32 @@ export default function App() {
     if (buildingsDebounceRef.current) clearTimeout(buildingsDebounceRef.current)
     buildingsDebounceRef.current = setTimeout(() => {
       const { gen, signal } = beginPlotSession()
-      void finishPlotPipeline(gen, signal, p, ring, buildings)
+      void finishPlotPipelineRef.current(gen, signal, p, ring, buildings)
     }, 400)
     return () => {
       if (buildingsDebounceRef.current) clearTimeout(buildingsDebounceRef.current)
     }
-  }, [buildings, finishPlotPipeline])
+  }, [buildings])
+
+  useEffect(() => {
+    if (!canReRankRef.current) return
+    const p = profileForShadowRef.current
+    const ring = ringForShadowRef.current
+    if (!p) return
+    if (prefsDebounceRef.current) clearTimeout(prefsDebounceRef.current)
+    prefsDebounceRef.current = setTimeout(() => {
+      const { gen, signal } = beginPlotSession()
+      setBusyLabel('Updating recommendations…')
+      void finishPlotPipelineRef.current(gen, signal, p, ring, buildingsRef.current).finally(
+        () => {
+          if (!isStale(gen)) setBusyLabel(null)
+        },
+      )
+    }, 350)
+    return () => {
+      if (prefsDebounceRef.current) clearTimeout(prefsDebounceRef.current)
+    }
+  }, [prefs, lang])
 
   const loadDemo = async () => {
     const { gen, signal } = beginPlotSession()
@@ -380,18 +442,12 @@ export default function App() {
       const { profile: climateProfile } = await fetchClimateProfile(
         DEMO_LAT,
         DEMO_LON,
-        12000,
+        DEMO_AREA_M2,
       )
       if (isStale(gen)) return
       setProfile(climateProfile)
       setPresentProfile(climateProfile)
-      const ring = polygonRing ?? [
-        [DEMO_LON - 0.0012, DEMO_LAT - 0.00084],
-        [DEMO_LON + 0.0012, DEMO_LAT - 0.00072],
-        [DEMO_LON + 0.00108, DEMO_LAT + 0.00096],
-        [DEMO_LON - 0.00096, DEMO_LAT + 0.00084],
-        [DEMO_LON - 0.0012, DEMO_LAT - 0.00084],
-      ]
+      const ring = polygonRing ?? demoPlotRing()
       setPolygonRing(ring)
       await finishPlotPipeline(gen, signal, climateProfile, ring, buildings, {
         saveAsDemo: true,
@@ -506,12 +562,47 @@ export default function App() {
             {t(lang, 'heroHead')} <em>{t(lang, 'heroEm')}</em>
           </h1>
           <p className="demo-hero-sub">{t(lang, 'subtitle')}</p>
+          <ul className="demo-hero-trust" aria-label={t(lang, 'footerOpenData')}>
+            <li>{t(lang, 'trustFree')}</li>
+            <li>{t(lang, 'trustData')}</li>
+            <li>{t(lang, 'trustLocal')}</li>
+          </ul>
+          <div className="demo-hero-cta">
+            <button
+              type="button"
+              className="hero-cta-primary"
+              onClick={() => {
+                scrollToMap()
+                window.setTimeout(() => mapDrawRef.current?.startPlotDraw(), 320)
+              }}
+            >
+              {t(lang, 'heroCtaDraw')}
+            </button>
+            <button
+              type="button"
+              className="hero-cta-secondary"
+              onClick={() => {
+                scrollToMap()
+                void loadDemo()
+              }}
+            >
+              {t(lang, 'heroCtaDemo')}
+            </button>
+          </div>
         </header>
 
         <div className="demo-main-row">
-          <div className="demo-col-map">
+          <div className="demo-col-map" ref={mapSectionRef} id="map-section">
+            <p className="demo-section-label">{t(lang, 'sectionMap')}</p>
             <div className="demo-map-panel">
               <div className="demo-map-toolbar">
+                <button
+                  type="button"
+                  className="draw-bed-btn"
+                  onClick={() => mapDrawRef.current?.startPlotDraw()}
+                >
+                  {t(lang, 'drawBedButton')}
+                </button>
                 <button type="button" onClick={() => void loadDemo()}>{t(lang, 'loadDemo')}</button>
                 <button type="button" className="secondary" onClick={clearApp}>
                   {t(lang, 'clear')}
@@ -525,23 +616,65 @@ export default function App() {
                   {t(lang, 'climate2050')}
                 </label>
               </div>
+              {!profile ? (
+                <aside className="map-draw-guide" aria-labelledby="draw-guide-title">
+                  <h3 id="draw-guide-title">{t(lang, 'drawBedTitle')}</h3>
+                  <ol className="map-draw-steps">
+                    <li>{t(lang, 'drawBedStep1')}</li>
+                    <li>{t(lang, 'drawBedStep2')}</li>
+                    <li>{t(lang, 'drawBedStep3')}</li>
+                  </ol>
+                  <p className="map-draw-guide-demo">{t(lang, 'drawBedDemo')}</p>
+                </aside>
+              ) : (
+                <p className="map-draw-done meta">{t(lang, 'drawBedDone')}</p>
+              )}
               <div className="map-panel">
                 <MapDraw
+                  ref={mapDrawRef}
                   onSelect={handlePlot}
+                  viewLat={MAP_VIEW_LAT}
+                  viewLon={MAP_VIEW_LON}
+                  viewZoom={MAP_VIEW_ZOOM}
                   demoLat={DEMO_LAT}
                   demoLon={DEMO_LON}
                   triggerDemo={demoTrigger}
                   initialRing={restoreRing}
                   initialBuildings={initialBuildings}
                   onBuildingsChange={setBuildings}
+                  onPlotRemoved={handlePlotRemoved}
                   radiationMj={profile?.radiation_mj ?? null}
                   layers={mapLayers}
                   lang={lang}
                 />
-                <div className="map-overlay-legend" aria-hidden="true">
-                  <span className={mapLayers.radiation ? 'on' : ''}>{t(lang, 'layerRadiation')}</span>
-                  <span className={mapLayers.pdok ? 'on' : ''}>{t(lang, 'layerPdok')}</span>
-                  <span className={buildings.length > 0 ? 'on' : ''}>{t(lang, 'buildingsLegend')}</span>
+                <div
+                  className="map-overlay-legend"
+                  role="group"
+                  aria-label={t(lang, 'layers')}
+                >
+                  {(
+                    [
+                      ['radiation', 'layerRadiation'],
+                      ['pdok', 'layerPdok'],
+                      ['ndvi', 'layerNdvi'],
+                    ] as const
+                  ).map(([key, labelKey]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={mapLayers[key] ? 'on' : ''}
+                      aria-pressed={mapLayers[key]}
+                      onClick={() => toggleMapLayer(key)}
+                    >
+                      {t(lang, labelKey)}
+                    </button>
+                  ))}
+                  <span
+                    className={`map-legend-hint${buildings.length > 0 ? ' on' : ''}`}
+                    title={t(lang, 'mapBuildingHint')}
+                  >
+                    {t(lang, 'buildingsLegend')}
+                  </span>
                 </div>
               </div>
               {(busyLabel || error) && (
@@ -551,224 +684,14 @@ export default function App() {
                 </p>
               )}
             </div>
-
-            {profile && plotScore && (
-              <section className="demo-site-panel card">
-                <div className="demo-site-head">
-                  <h2>{t(lang, 'siteProfile')}</h2>
-                  <span className="meta">{profile.climate_period ?? '1991–2020'}</span>
-                </div>
-                <div className="demo-stat-grid">
-                  <div>
-                    <p className="stat-label">{t(lang, 'statSun')}</p>
-                    <p className="stat-value">{fmt(profile.sun_hours_per_day, 1)} h/day</p>
-                    <p className="stat-note">{profile.sun_class} · {t(lang, 'estimate')}</p>
-                  </div>
-                  <div>
-                    <p className="stat-label">{t(lang, 'statRain')}</p>
-                    <p className="stat-value">{fmt(profile.rain_mm_year, 0)} mm/yr</p>
-                    <p className="stat-note">{t(lang, 'modeled')}</p>
-                  </div>
-                  <div>
-                    <p className="stat-label">{t(lang, 'statTemp')}</p>
-                    <p className="stat-value">{fmt(profile.temp_growing_season, 1)} °C</p>
-                    <p className="stat-note">{t(lang, 'modeled')}</p>
-                  </div>
-                  <div>
-                    <p className="stat-label">{t(lang, 'statSoil')}</p>
-                    <p className="stat-value">{fmt(profile.soil_ph, 1)} pH</p>
-                    <p className="stat-note">
-                      {profile.soil_type_nl ??
-                        (profile.pdok_unavailable ? t(lang, 'noNlSoil') : profile.texture_class)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="stat-label">{t(lang, 'statBed')}</p>
-                    <p className="stat-value">{fmt(profile.area_m2, 0)} m²</p>
-                    <p className="stat-note">
-                      {fmt(profile.lat, 4)}°, {fmt(profile.lon, 4)}°
-                    </p>
-                  </div>
-                </div>
-                <div className="demo-score-row">
-                  <div className="demo-score-circle" aria-hidden="true">{plotScore.value}</div>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>
-                      {t(lang, 'plotScore')} ({t(lang, 'estimate')})
-                    </p>
-                    <p className="meta" style={{ marginTop: 4 }}>{plotScore.verdict}</p>
-                  </div>
-                </div>
-                <p className="honesty">{t(lang, 'honesty')}</p>
-                {climate2050Note && <p className="meta note">{climate2050Note}</p>}
-                {plantDiff && scenario2050 && <p className="meta">{plantDiff}</p>}
-              </section>
-            )}
-
-            <details className="demo-advanced site-details">
-          <summary>{t(lang, 'siteProfile')}</summary>
-          {!profile && <p className="meta">{t(lang, 'drawPlotHint')}</p>}
-          {profile && (
-            <div className="site-dl-wrap">
-              <dl>
-                <dt>Centroid</dt>
-                <dd>{fmt(profile.lat, 4)}°, {fmt(profile.lon, 4)}°</dd>
-                <dt>Area</dt>
-                <dd>{fmt(profile.area_m2, 0)} m²</dd>
-                <dt>Sun (est.)</dt>
-                <dd>
-                  {fmt(profile.sun_hours_per_day, 1)} h/day → <strong>{profile.sun_class}</strong>
-                </dd>
-                <dt>Radiation</dt>
-                <dd>{fmt(profile.radiation_mj, 2)} MJ/m²/day</dd>
-                <dt>Rain</dt>
-                <dd>
-                  {fmt(profile.rain_mm_year, 0)} mm/yr ({profile.climate_period ?? 'multi-year'})
-                </dd>
-                <dt>Growing-season temp</dt>
-                <dd>{fmt(profile.temp_growing_season, 1)} °C</dd>
-                {profile.frost_gdd && (
-                  <>
-                    <dt>Frost days / yr (median)</dt>
-                    <dd>
-                      {profile.frost_gdd.frost_days_median ?? '—'} ({profile.frost_gdd.source},{' '}
-                      {profile.frost_gdd.data_kind})
-                    </dd>
-                    <dt>GDD base 5°C (Apr–Sep sum)</dt>
-                    <dd>{profile.frost_gdd.gdd_base5_growing ?? '—'}</dd>
-                  </>
-                )}
-                {profile.climate_2050_delta && (
-                  <>
-                    <dt>2050 delta</dt>
-                    <dd className="meta">{profile.climate_2050_delta.note}</dd>
-                  </>
-                )}
-                <dt>Soil pH</dt>
-                <dd>{fmt(profile.soil_ph, 1)}</dd>
-                {profile.soil_resolution_note && (
-                  <>
-                    <dt>Soil source</dt>
-                    <dd className="meta">{profile.soil_resolution_note}</dd>
-                  </>
-                )}
-                <dt>Clay / sand</dt>
-                <dd>{fmt(profile.clay_pct, 0)}% / {fmt(profile.sand_pct, 0)}%</dd>
-                <dt>NL grondsoort</dt>
-                <dd>
-                  {profile.soil_type_nl ??
-                    (profile.pdok_unavailable ? t(lang, 'noNlSoil') : '—')}
-                </dd>
-                {profile.site_context && (
-                  <>
-                    <dt>Urban context</dt>
-                    <dd>
-                      {profile.site_context.class}: {profile.site_context.buildingCount100m} buildings
-                      / 100 m (~{Math.round(profile.site_context.builtUpFraction * 100)}% proxy, 3DBAG)
-                    </dd>
-                    {profile.site_context.uhi_note && (
-                      <dd className="meta">{profile.site_context.uhi_note}</dd>
-                    )}
-                  </>
-                )}
-              </dl>
-              <p className="meta">Sources: {profile.sources.join(' · ')}</p>
-            </div>
-          )}
-            </details>
-
-            <details className="demo-advanced map-tools">
-          <summary>{t(lang, 'mapLayersShade')}</summary>
-          <LayerToggles lang={lang} layers={mapLayers} setLayers={setMapLayers} />
-          {bag3dNote && <p className="meta note">{bag3dNote}</p>}
-          <p className="meta note">{t(lang, 'mapBuildingHint')}</p>
-          {buildings.length > 0 && (
-            <div className="buildings-list">
-              <h3>{t(lang, 'buildingsHeights')}</h3>
-              {buildings.map((b) => (
-                <label key={b.id} className="status-row">
-                  {b.id.slice(0, 8)}… {t(lang, 'heightM')}
-                  <input
-                    type="number"
-                    min={3}
-                    max={80}
-                    value={b.height_m}
-                    onChange={(e) =>
-                      setBuildings((prev) =>
-                        prev.map((x) =>
-                          x.id === b.id ? { ...x, height_m: Number(e.target.value) } : x,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-          <SunHeatmapCard grid={sunGrid} lang={lang} />
-          {guildNote && <p className="meta note">{guildNote}</p>}
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={manualShade}
-              onChange={(e) => {
-                const checked = e.target.checked
-                setManualShade(checked)
-                if (!profile) return
-                const adjusted: SiteProfile = {
-                  ...profile,
-                  manual_shade: checked,
-                  sun_class: checked ? 'shade' : sunClass(profile.sun_hours_per_day),
-                }
-                setProfile(adjusted)
-                const { gen, signal } = beginPlotSession()
-                setBusyLabel('Updating recommendations…')
-                void finishPlotPipeline(gen, signal, adjusted, polygonRing, buildings).finally(
-                  () => setBusyLabel(null),
-                )
-              }}
-            />
-            {t(lang, 'shade')}
-          </label>
-            </details>
-
-            {profile && (
-              <>
-                <FungiPanel
-                  scientificName={selectedPlant?.name ?? plants[0]?.name ?? null}
-                  urban={profile?.site_context?.class === 'urban'}
-                />
-                <WhyNotPanel profile={profile} />
-              </>
-            )}
           </div>
 
           <div className="demo-col-side">
+            <p className="demo-section-label">{t(lang, 'sectionGoals')}</p>
             <div className="demo-goals-panel">
               <UserGoals prefs={prefs} onChange={setPrefs} lang={lang} />
-              <p className="meta note" style={{ padding: '0 22px 16px', margin: 0 }}>
-                {effortHoursLabel(prefs)}
-              </p>
-            </div>
-
-            <div className="demo-plants-panel">
-              {profile && plants.length > 0 ? (
-                <RecommendedPlantsSection
-                  profile={profile}
-                  plants={plants}
-                  lang={lang}
-                  rankingNote={rankingNote}
-                  prefs={prefs}
-                  onSelectPlant={setSelectedPlant}
-                />
-              ) : (
-                <>
-                  <h2 style={{ margin: '0 0 16px', color: '#fff', fontSize: 20, fontWeight: 600 }}>
-                    {t(lang, 'recommended')}
-                  </h2>
-                  <p className="demo-plants-empty">{t(lang, 'noPlantsYet')}</p>
-                </>
-              )}
+              <p className="goals-effort-note">{effortHoursLabel(prefs)}</p>
+              <p className="goals-lead">{t(lang, 'goalsLead')}</p>
             </div>
 
             {profile && plants.length > 0 && (
@@ -781,7 +704,7 @@ export default function App() {
                 {zonePlants.map((z) => (
                   <div key={z.zone}>
                     <p className="meta">
-                      <strong>{z.zone}</strong> ~{fmt(z.sun_hours, 1)} h/day effective
+                      <strong>{z.zone}</strong> ~{fmt(z.sun_hours, 1)} {t(lang, 'zoneHoursDay')}
                     </p>
                     <p>{z.plants.map((p) => p.name).join(', ')}</p>
                   </div>
@@ -789,9 +712,254 @@ export default function App() {
               </div>
             )}
 
-            <ShareExport sharePayload={sharePayload} lang={lang} reportRef={reportRef} />
+          </div>
+
+          <section
+            className="demo-plants-row"
+            aria-labelledby={profile && plants.length > 0 ? 'plants-heading' : 'plants-section-heading'}
+          >
+            <div className="demo-plants-panel">
+              {profile && plants.length > 0 && (
+                <p className="demo-results-banner" role="status">
+                  {tFormat(lang, 'resultsReady', { count: plants.length })}
+                </p>
+              )}
+              <p className="demo-section-label demo-section-label-invert">{t(lang, 'sectionResults')}</p>
+              {profile && plotScore && (
+                <section className="demo-site-panel card site-with-score">
+                  <div className="demo-site-head">
+                    <h2>{t(lang, 'siteProfile')}</h2>
+                    <span className="meta">{profile.climate_period ?? '1991–2020'}</span>
+                  </div>
+                  <div className="site-score-layout">
+                    <PlotScoreHero profile={profile} lang={lang} embedded />
+                    <div className="demo-stat-grid">
+                      <div>
+                        <p className="stat-label">{t(lang, 'statSun')}</p>
+                        <p className="stat-value">{fmt(profile.sun_hours_per_day, 1)} h/day</p>
+                        <p className="stat-note">{profile.sun_class} · {t(lang, 'estimate')}</p>
+                      </div>
+                      <div>
+                        <p className="stat-label">{t(lang, 'statRain')}</p>
+                        <p className="stat-value">{fmt(profile.rain_mm_year, 0)} mm/yr</p>
+                        <p className="stat-note">{t(lang, 'modeled')}</p>
+                      </div>
+                      <div>
+                        <p className="stat-label">{t(lang, 'statTemp')}</p>
+                        <p className="stat-value">{fmt(profile.temp_growing_season, 1)} °C</p>
+                        <p className="stat-note">{t(lang, 'modeled')}</p>
+                      </div>
+                      <div>
+                        <p className="stat-label">{t(lang, 'statSoil')}</p>
+                        <p className="stat-value">{fmt(profile.soil_ph, 1)} pH</p>
+                        <p className="stat-note">
+                          {profile.soil_type_nl ??
+                            (profile.pdok_unavailable ? t(lang, 'noNlSoil') : profile.texture_class)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="stat-label">{t(lang, 'statBed')}</p>
+                        <p className="stat-value">{fmt(profile.area_m2, 0)} m²</p>
+                        <p className="stat-note">
+                          {fmt(profile.lat, 4)}°, {fmt(profile.lon, 4)}°
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {climate2050Note && <p className="meta note">{climate2050Note}</p>}
+                  {plantDiff && scenario2050 && <p className="meta">{plantDiff}</p>}
+                </section>
+              )}
+              {profile && plants.length > 0 ? (
+                <RecommendedPlantsSection
+                  profile={profile}
+                  plants={plants}
+                  lang={lang}
+                  rankingNote={rankingNote}
+                  prefs={prefs}
+                  onSelectPlant={setSelectedPlant}
+                />
+              ) : (
+                <>
+                  <h2 id="plants-section-heading" className="demo-plants-title">
+                    {t(lang, 'recommended')}
+                  </h2>
+                  <p className="demo-plants-empty">{t(lang, 'noPlantsYet')}</p>
+                </>
+              )}
+            </div>
+          </section>
+
+          <div className={`demo-share-row${sharePayload ? ' demo-share-row-ready' : ''}`}>
+            <ShareExport sharePayload={sharePayload} lang={lang} reportRef={reportRef} prominent={!!sharePayload} />
+          </div>
+
+          <div className="demo-secondary">
+            <details className="demo-advanced map-tools">
+              <summary>{t(lang, 'mapLayersShade')}</summary>
+              <LayerToggles lang={lang} layers={mapLayers} setLayers={setMapLayers} />
+              {bag3dNote && <p className="meta note">{bag3dNote}</p>}
+              <p className="meta note">{t(lang, 'mapBuildingHint')}</p>
+              {buildings.length > 0 && (
+                <div className="buildings-list">
+                  <h3>{t(lang, 'buildingsHeights')}</h3>
+                  {buildings.map((b) => (
+                    <label key={b.id} className="status-row">
+                      {b.id.slice(0, 8)}… {t(lang, 'heightM')}
+                      <input
+                        type="number"
+                        min={3}
+                        max={80}
+                        value={b.height_m}
+                        onChange={(e) =>
+                          setBuildings((prev) =>
+                            prev.map((x) =>
+                              x.id === b.id ? { ...x, height_m: Number(e.target.value) } : x,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+              <SunHeatmapCard grid={sunGrid} lang={lang} />
+              {guildNote && <p className="meta note">{guildNote}</p>}
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={manualShade}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setManualShade(checked)
+                    if (!profile) return
+                    const adjusted: SiteProfile = {
+                      ...profile,
+                      manual_shade: checked,
+                      sun_class: checked ? 'shade' : sunClass(profile.sun_hours_per_day),
+                    }
+                    setProfile(adjusted)
+                    const { gen, signal } = beginPlotSession()
+                    setBusyLabel('Updating recommendations…')
+                    void finishPlotPipeline(gen, signal, adjusted, polygonRing, buildings).finally(
+                      () => setBusyLabel(null),
+                    )
+                  }}
+                />
+                {t(lang, 'shade')}
+              </label>
+            </details>
+
+            {profile && (
+              <>
+                <FungiPanel
+                  scientificName={selectedPlant?.name ?? plants[0]?.name ?? null}
+                  urban={profile?.site_context?.class === 'urban'}
+                />
+                <WhyNotPanel profile={profile} />
+              </>
+            )}
+
+            {profile ? (
+              <section className="demo-site-panel card site-profile-full" aria-labelledby="site-full-heading">
+                <div className="demo-site-head">
+                  <h2 id="site-full-heading">
+                    {t(lang, 'siteProfile')} · {t(lang, 'siteProfileMore')}
+                  </h2>
+                  <span className="meta">{profile.climate_period ?? '1991–2020'}</span>
+                </div>
+                <div className="site-dl-wrap">
+                  <dl className="site-dl">
+                    <dt>Centroid</dt>
+                    <dd>{fmt(profile.lat, 4)}°, {fmt(profile.lon, 4)}°</dd>
+                    <dt>Area</dt>
+                    <dd>{fmt(profile.area_m2, 0)} m²</dd>
+                    <dt>Sun (est.)</dt>
+                    <dd>
+                      {fmt(profile.sun_hours_per_day, 1)} h/day → <strong>{profile.sun_class}</strong>
+                    </dd>
+                    <dt>Radiation</dt>
+                    <dd>{fmt(profile.radiation_mj, 2)} MJ/m²/day</dd>
+                    <dt>Rain</dt>
+                    <dd>
+                      {fmt(profile.rain_mm_year, 0)} mm/yr ({profile.climate_period ?? 'multi-year'})
+                    </dd>
+                    <dt>Growing-season temp</dt>
+                    <dd>{fmt(profile.temp_growing_season, 1)} °C</dd>
+                    {profile.frost_gdd && (
+                      <>
+                        <dt>Frost days / yr (median)</dt>
+                        <dd>
+                          {profile.frost_gdd.frost_days_median ?? '—'} ({profile.frost_gdd.source},{' '}
+                          {profile.frost_gdd.data_kind})
+                        </dd>
+                        <dt>GDD base 5°C (Apr–Sep sum)</dt>
+                        <dd>{profile.frost_gdd.gdd_base5_growing ?? '—'}</dd>
+                      </>
+                    )}
+                    {profile.climate_2050_delta && (
+                      <>
+                        <dt>2050 delta</dt>
+                        <dd className="site-dl-note">{profile.climate_2050_delta.note}</dd>
+                      </>
+                    )}
+                    <dt>Soil pH</dt>
+                    <dd>{fmt(profile.soil_ph, 1)}</dd>
+                    {profile.soil_resolution_note && (
+                      <>
+                        <dt>Soil source</dt>
+                        <dd className="site-dl-note">{profile.soil_resolution_note}</dd>
+                      </>
+                    )}
+                    <dt>Clay / sand</dt>
+                    <dd>{fmt(profile.clay_pct, 0)}% / {fmt(profile.sand_pct, 0)}%</dd>
+                    <dt>NL grondsoort</dt>
+                    <dd>
+                      {profile.soil_type_nl ??
+                        (profile.pdok_unavailable ? t(lang, 'noNlSoil') : '—')}
+                    </dd>
+                    {profile.site_context && (
+                      <>
+                        <dt>Urban context</dt>
+                        <dd>
+                          {profile.site_context.class}: {profile.site_context.buildingCount100m}{' '}
+                          buildings / 100 m (~{Math.round(profile.site_context.builtUpFraction * 100)}%
+                          proxy, 3DBAG)
+                        </dd>
+                        {profile.site_context.uhi_note && (
+                          <dd className="site-dl-note site-dl-note-indented">
+                            {profile.site_context.uhi_note}
+                          </dd>
+                        )}
+                      </>
+                    )}
+                  </dl>
+                  <p className="site-sources meta">
+                    Sources: {profile.sources.join(' · ')}
+                  </p>
+                  <p className="honesty site-profile-full-honesty">{t(lang, 'honesty')}</p>
+                </div>
+              </section>
+            ) : (
+              <p className="demo-secondary-hint meta">{t(lang, 'drawPlotHint')}</p>
+            )}
           </div>
         </div>
+
+        {!profile && (
+          <div className="demo-mobile-cta" role="region" aria-label={t(lang, 'heroCtaDraw')}>
+            <button
+              type="button"
+              className="draw-bed-btn"
+              onClick={() => {
+                scrollToMap()
+                window.setTimeout(() => mapDrawRef.current?.startPlotDraw(), 320)
+              }}
+            >
+              {t(lang, 'drawBedButton')}
+            </button>
+          </div>
+        )}
 
         <footer className="demo-footer">
           <span>{t(lang, 'footerLine')}</span>

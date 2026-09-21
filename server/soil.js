@@ -8,8 +8,16 @@ const CACHE_DIR = path.join(__dirname, 'cache')
 const memoryCache = new Map()
 const TIMEOUT_MS = 18_000
 
-/** Offsets tried when centroid is null (urban grid gaps) */
+/** Offsets tried when centroid is null (urban grid gaps); fine steps first (~200 m–1 km). */
 const NEARBY_OFFSETS = [
+  [0.002, 0],
+  [0, 0.002],
+  [-0.002, 0.002],
+  [0.002, -0.002],
+  [0.005, 0],
+  [0, 0.005],
+  [0.01, 0.002],
+  [-0.01, 0.01],
   [0.05, 0.01],
   [0.05, 0],
   [0, 0.05],
