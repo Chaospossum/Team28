@@ -8,8 +8,73 @@
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: 45vh auto;
+    grid-template-rows: 38vh auto;
   }
+
+  .sidebar-plot-first {
+    max-height: 62vh;
+  }
+
+  .plants-hero h2 {
+    font-size: 1.25rem;
+  }
+
+  .plant-grid {
+    gap: 0.65rem;
+  }
+}
+
+details.site-details summary,
+details.map-tools summary,
+details.goals-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #163828;
+}
+
+.plants-hero {
+  border: 2px solid #2d6a4f;
+  background: #fff;
+}
+
+.plants-hero h2 {
+  font-size: 1.35rem;
+}
+
+.plant-card h3 {
+  font-size: 1.05rem;
+}
+
+.map-panel {
+  position: relative;
+  min-height: 45vh;
+}
+
+.map-overlay-legend {
+  position: absolute;
+  left: 0.65rem;
+  bottom: 0.65rem;
+  z-index: 500;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: 14rem;
+  pointer-events: none;
+}
+
+.map-overlay-legend span {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #6b7c72;
+  border: 1px solid #c9d8c3;
+}
+
+.map-overlay-legend span.on {
+  color: #163828;
+  border-color: #2d6a4f;
+  font-weight: 600;
 }
 
 .map-wrap {

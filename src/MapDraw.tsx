@@ -10,6 +10,8 @@ import { polygon as turfPolygon } from '@turf/helpers'
 import iconUrl from 'leaflet/dist/images/marker-icon.png'
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
+import type { Lang } from './i18n'
+import { t } from './i18n'
 import type { PlotBuilding } from './types'
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
@@ -30,11 +32,19 @@ function to3857(lon: number, lat: number) {
   return [x, y]
 }
 
+/** Inverted: higher radiation → deeper green; lower → amber (not red-green only). */
 function radiationColor(mj: number | null) {
   const v = mj ?? 11
-  if (v >= 14) return '#e76f51'
-  if (v >= 11) return '#f4a261'
-  return '#90be6d'
+  if (v >= 14) return '#2d6a4f'
+  if (v >= 11) return '#52b788'
+  return '#e9c46a'
+}
+
+function radiationWeight(mj: number | null) {
+  const v = mj ?? 11
+  if (v >= 14) return 3
+  if (v >= 11) return 2
+  return 1
 }
 
 function rectangleToRing(layer: L.Rectangle): number[][] {
@@ -62,6 +72,7 @@ interface Props {
   onBuildingsChange: (b: PlotBuilding[]) => void
   radiationMj: number | null
   layers: { radiation: boolean; pdok: boolean; ndvi: boolean }
+  lang?: Lang
 }
 
 export function MapDraw({
@@ -74,6 +85,7 @@ export function MapDraw({
   onBuildingsChange,
   radiationMj,
   layers,
+  lang = 'en',
 }: Props) {
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.FeatureGroup | null>(null)
@@ -92,7 +104,8 @@ export function MapDraw({
     const fill = layers.radiation ? radiationColor(radiationMj) : '#52b788'
     layer.setStyle({
       color: '#1b4332',
-      weight: 2,
+      weight: layers.radiation ? radiationWeight(radiationMj) : 2,
+      dashArray: layers.radiation && (radiationMj ?? 11) < 11 ? '4 3' : undefined,
       fillColor: fill,
       fillOpacity: layers.radiation ? 0.45 : 0.25,
     })
@@ -181,6 +194,20 @@ export function MapDraw({
   }
 
   useEffect(() => {
+    const local = L.drawLocal as {
+      draw?: { handlers?: { polygon?: { tooltip?: { start?: string; cont?: string; end?: string } }; rectangle?: { tooltip?: { start?: string; cont?: string; end?: string } } } }
+    }
+    if (local.draw?.handlers?.polygon?.tooltip) {
+      local.draw.handlers.polygon.tooltip.start = t(lang, 'drawPlot')
+      local.draw.handlers.polygon.tooltip.cont = t(lang, 'drawPlot')
+      local.draw.handlers.polygon.tooltip.end = t(lang, 'drawPlot')
+    }
+    if (local.draw?.handlers?.rectangle?.tooltip) {
+      local.draw.handlers.rectangle.tooltip.start = t(lang, 'drawBuilding')
+      local.draw.handlers.rectangle.tooltip.cont = t(lang, 'drawBuilding')
+      local.draw.handlers.rectangle.tooltip.end = t(lang, 'drawBuilding')
+    }
+
     const map = L.map('map', { center: [demoLat, demoLon], zoom: 14 })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap',
@@ -197,7 +224,7 @@ export function MapDraw({
     const drawControl = new L.Control.Draw({
       draw: {
         polygon: { allowIntersection: false, showArea: true },
-        rectangle: { showArea: false },
+        rectangle: false,
         polyline: false,
         circle: false,
         circlemarker: false,
@@ -271,7 +298,7 @@ export function MapDraw({
       map.remove()
       mapRef.current = null
     }
-  }, [demoLat, demoLon])
+  }, [demoLat, demoLon, lang])
 
   useEffect(() => {
     if (initialBuildings?.length) {
@@ -333,5 +360,15 @@ export function MapDraw({
     updatePdokOverlay()
   }, [initialRing])
 
-  return <div id="map" className="map-wrap" />
+  return (
+    <div className="map-outer">
+      <div id="map" className="map-wrap" role="application" aria-label={t(lang, 'mapToolbar')} />
+      {layers.radiation && (
+        <div className="map-radiation-legend meta" aria-hidden="true">
+          <span className="rad-low">{t(lang, 'radiationLow')}</span>
+          <span className="rad-high">{t(lang, 'radiationHigh')}</span>
+        </div>
+      )}
+    </div>
+  )
 }

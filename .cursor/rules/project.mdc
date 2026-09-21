@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+# Right Plant — project rules
+
+## SCOPE
+- Smallest diffs; no drive-by refactors or unrelated edits.
+- No new `package.json` dependencies without explicit approval.
+- No full rewrites of working modules.
+- Read before write; match existing patterns.
+
+## Correctness
+- No `any` in TypeScript.
+- No invented numbers, sources, or URLs in UI or copy.
+- No silent fallbacks: failures show honest messages or "no data here".
+- Async: AbortController for stale requests; debounce noisy inputs where specified.
+
+## i18n
+- User-visible strings use `t(lang, key)` for en, nl, fr, de.
+
+## a11y
+- Real `<button>` / labeled controls; keyboard focus visible; no div-only critical actions.
+
+## Definition of done (each phase)
+Before starting the next phase, all must pass:
+- `npx tsc -b --noEmit`
+- `npm run lint`
+- `npm test`
+- `npm run build`
+
+Never report "done, but".

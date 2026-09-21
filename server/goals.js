@@ -29,6 +29,39 @@ export function pollinatorValueForName(name) {
   return { value: null, groups: '', months: '', source: 'unknown' }
 }
 
+/** 0..1 fit inside [min,max]; null if any input missing. */
+export function rangeFactorScore(value, min, max) {
+  if (value == null || min == null || max == null) return null
+  if (value < min || value > max) return 0
+  const span = max - min
+  if (span <= 0) return 1
+  const mid = (min + max) / 2
+  const half = span / 2
+  const dist = Math.abs(value - mid) / half
+  return Math.max(0.35, 1 - dist * 0.35)
+}
+
+/**
+ * Site suitability 0..1 from EcoCrop ranges vs site; skip null inputs and renormalise.
+ */
+export function siteSuitability(plant, site) {
+  const factors = []
+  const temp = rangeFactorScore(site.temp_growing_season, plant.tmin, plant.tmax)
+  if (temp != null) factors.push({ factor: 'temperature', score: temp })
+  const rain = rangeFactorScore(site.rain_mm_year, plant.rmin, plant.rmax)
+  if (rain != null) factors.push({ factor: 'rainfall', score: rain })
+  const ph = rangeFactorScore(site.soil_ph, plant.phmin, plant.phmax)
+  if (ph != null) factors.push({ factor: 'ph', score: ph })
+  const sun = rangeFactorScore(site.sun_hours_per_day, plant.limn, plant.limx)
+  if (sun != null) factors.push({ factor: 'light', score: sun })
+
+  if (factors.length === 0) {
+    return { score: 0.5, factors: [] }
+  }
+  const sum = factors.reduce((a, f) => a + f.score, 0)
+  return { score: sum / factors.length, factors }
+}
+
 export function goalScoreForPlant(plant, prefs) {
   const cat = (plant.cat ?? '').toLowerCase()
   let food = 0
@@ -62,9 +95,16 @@ export function rankWithGoals(shortlist, site, prefs) {
     .map((p) => {
       const goal = goalScoreForPlant(p, prefs)
       const effort = effortPenalty(p, prefs)
-      const siteSuit = 1
-      const score = siteSuit * goal - effort
-      return { ...p, goalScore: goal, effortPenalty: effort, totalScore: score }
+      const { score: siteSuit, factors: siteFactors } = siteSuitability(p, site)
+      const totalScore = siteSuit * goal - effort
+      return {
+        ...p,
+        goalScore: goal,
+        effortPenalty: effort,
+        siteSuitability: siteSuit,
+        siteFactors,
+        totalScore,
+      }
     })
     .sort((a, b) => b.totalScore - a.totalScore)
 }
