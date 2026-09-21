@@ -173,12 +173,53 @@ export function filterEcoCrop(site, cap = 30) {
   return matches.slice(0, cap)
 }
 
-export function shortlistFallback(shortlist, count = 8) {
+function waterNeedFromRain(siteRain, rmin, rmax) {
+  if (siteRain == null) return 'moderate'
+  const mid = ((rmin ?? 500) + (rmax ?? 1200)) / 2
+  if (siteRain < mid * 0.85) return 'low'
+  if (siteRain > mid * 1.15) return 'high'
+  return 'moderate'
+}
+
+function sunNeedFromClass(sunClass) {
+  if (sunClass === 'full sun') return 'full sun'
+  if (sunClass === 'shade') return 'shade'
+  return 'part shade'
+}
+
+function buildWhy(s, site) {
+  const bits = []
+  if (site.temp_growing_season != null && s.tmin != null && s.tmax != null) {
+    bits.push(
+      `your ${site.temp_growing_season.toFixed(1)}°C Apr–Sep mean sits inside its ${s.tmin}–${s.tmax}°C band`,
+    )
+  }
+  if (site.rain_mm_year != null && s.rmin != null && s.rmax != null) {
+    bits.push(
+      `~${Math.round(site.rain_mm_year)} mm/yr rainfall matches its ${s.rmin}–${s.rmax} mm tolerance`,
+    )
+  }
+  if (site.soil_ph != null && s.phmin != null && s.phmax != null) {
+    bits.push(`pH ${site.soil_ph.toFixed(1)} fits ${s.phmin}–${s.phmax}`)
+  }
+  if (site.sun_class) {
+    bits.push(`${site.sun_class} light suits typical garden culture here`)
+  }
+  if (!bits.length) {
+    return `EcoCrop lists it for similar climates (${s.tmin ?? '?'}-${s.tmax ?? '?'}°C, ${s.rmin ?? '?'}-${s.rmax ?? '?'} mm).`
+  }
+  return bits.slice(0, 2).join('; ') + '.'
+}
+
+export function shortlistFallback(shortlist, site, count = 8) {
   return shortlist.slice(0, count).map((s) => ({
     name: s.name,
-    why: `EcoCrop tolerates ~${s.tmin ?? '?'}-${s.tmax ?? '?'}°C, ${s.rmin ?? '?'}-${s.rmax ?? '?'} mm rain, pH ${s.phmin ?? '?'}-${s.phmax ?? '?'}.`,
-    water_need: 'moderate',
-    sun_need: 'varies',
-    risk: 'Verify locally; rule-based match only.',
+    why: buildWhy(s, site),
+    water_need: waterNeedFromRain(site.rain_mm_year, s.rmin, s.rmax),
+    sun_need: sunNeedFromClass(site.sun_class),
+    risk:
+      site.soil_ph == null
+        ? 'Soil pH was estimated nearby — confirm with a soil test.'
+        : 'Neighbourhood-scale match; watch pests and drainage locally.',
   }))
 }

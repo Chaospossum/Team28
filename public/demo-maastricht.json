@@ -3,80 +3,84 @@
     "lat": 50.85,
     "lon": 5.69,
     "area_m2": 12000,
-    "sun_hours_per_day": 7.41,
-    "radiation_mj": 11.56,
-    "rain_mm_year": 1191.5,
-    "temp_growing_season": 16.28,
+    "sun_hours_per_day": 4.293355920289035,
+    "sun_hours_archive": 7.654900652610442,
+    "radiation_mj": 11.506193866374614,
+    "rain_mm_year": 829.4,
+    "temp_growing_season": 15.90562841530055,
+    "climate_period": "2019–2023",
+    "sun_class_source": "radiation-based estimate (archive sunshine often inflated)",
     "soil_ph": 6.2,
     "clay_pct": 16.3,
     "sand_pct": 19.7,
     "soc": 26.8,
     "soil_type_nl": null,
-    "sun_class": "full sun",
+    "sun_class": "part shade",
     "texture_class": "loamy",
-    "moisture_class": "wet",
+    "moisture_class": "moderate",
     "sources": [
-      "Open-Meteo Archive 2023",
-      "SoilGrids v2.0 (cached demo)"
+      "Open-Meteo Archive 2019–2023",
+      "SoilGrids v2.0 (0-5cm, ~6 km offset)"
     ],
-    "data_resolution_note": "Soil data ≈250 m resolution, climate ≈km scale. Neighbourhood estimate, not a soil test."
+    "data_resolution_note": "Soil data ≈250 m resolution, climate ≈km scale. Neighbourhood estimate, not a soil test.",
+    "pdok_unavailable": true
   },
   "plants": [
     {
       "name": "adzuki bean",
-      "why": "EcoCrop tolerates ~5-36°C, 530-1800 mm rain, pH 5-7.5.",
-      "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "why": "your 15.9°C Apr–Sep mean sits inside its 5–36°C band; ~829 mm/yr rainfall matches its 530–1800 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     },
     {
       "name": "african potato",
-      "why": "EcoCrop tolerates ~?-?°C, ?-? mm rain, pH ?-?.",
+      "why": "part shade light suits typical garden culture here.",
       "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     },
     {
       "name": "African yam bean",
-      "why": "EcoCrop tolerates ~15-35°C, 800-1400 mm rain, pH 4.5-7.",
+      "why": "your 15.9°C Apr–Sep mean sits inside its 15–35°C band; ~829 mm/yr rainfall matches its 800–1400 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+    },
+    {
+      "name": "Algerian oat",
+      "why": "your 15.9°C Apr–Sep mean sits inside its 2–36°C band; ~829 mm/yr rainfall matches its 400–1100 mm tolerance.",
       "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     },
     {
       "name": "apple",
-      "why": "EcoCrop tolerates ~8-33°C, 500-3200 mm rain, pH 4.5-8.",
-      "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "why": "your 15.9°C Apr–Sep mean sits inside its 8–33°C band; ~829 mm/yr rainfall matches its 500–3200 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     },
     {
       "name": "apricot",
-      "why": "EcoCrop tolerates ~7-40°C, 800-1470 mm rain, pH 5-8.",
-      "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "why": "your 15.9°C Apr–Sep mean sits inside its 7–40°C band; ~829 mm/yr rainfall matches its 800–1470 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     },
     {
       "name": "asparagus",
-      "why": "EcoCrop tolerates ~6-38°C, 500-4000 mm rain, pH 4.5-8.2.",
-      "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "why": "your 15.9°C Apr–Sep mean sits inside its 6–38°C band; ~829 mm/yr rainfall matches its 500–4000 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     },
     {
       "name": "asparagus bean",
-      "why": "EcoCrop tolerates ~14-38°C, 650-4100 mm rain, pH 4.3-7.5.",
-      "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
-    },
-    {
-      "name": "barley",
-      "why": "EcoCrop tolerates ~2-40°C, 200-2000 mm rain, pH 6-8.",
-      "water_need": "moderate",
-      "sun_need": "varies",
-      "risk": "Verify locally; rule-based match only."
+      "why": "your 15.9°C Apr–Sep mean sits inside its 14–38°C band; ~829 mm/yr rainfall matches its 650–4100 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
     }
   ],
   "shortlistCount": 30,

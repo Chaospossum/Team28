@@ -1,7 +1,8 @@
 node_modules
 dist
 .env
-server/cache/*.json
-!.gitkeep
+server/cache/*
+!server/cache/.gitkeep
+!server/cache/soil-50.850_5.690.json
 .DS_Store
 *.log
