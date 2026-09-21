@@ -1,3 +1,13 @@
+.static-host-banner {
+  background: rgba(220, 241, 106, 0.95);
+  color: var(--rp-forest-deep);
+  padding: 12px 18px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
 .demo-page {
   min-height: 100vh;
   background: var(--rp-page);

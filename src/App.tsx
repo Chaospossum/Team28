@@ -32,6 +32,7 @@ import type {
   SiteProfile,
   SunZonePlants,
 } from './types'
+import { STATIC_HOST, demoJsonUrl, isDemoPlot } from './staticHost'
 
 /** Default map view: Limburg (province), zoomed out */
 const MAP_VIEW_LAT = 51.35
@@ -44,25 +45,37 @@ function fmt(n: number | null, digits = 1) {
 }
 
 async function loadDemoFallback(): Promise<RecommendResponse | null> {
-  for (const url of ['/api/demo', '/demo-maastricht.json']) {
+  if (!STATIC_HOST) {
     try {
-      const res = await fetch(url)
+      const res = await fetch('/api/demo')
       if (res.ok) return await res.json()
     } catch {
-      /* try next */
+      /* static or offline */
     }
+  }
+  try {
+    const res = await fetch(demoJsonUrl('demo-maastricht.json'))
+    if (res.ok) return await res.json()
+  } catch {
+    /* ignore */
   }
   return null
 }
 
 async function loadDemo2050Fallback(): Promise<RecommendResponse | null> {
-  for (const url of ['/api/demo-2050', '/demo-maastricht-2050.json']) {
+  if (!STATIC_HOST) {
     try {
-      const res = await fetch(url)
+      const res = await fetch('/api/demo-2050')
       if (res.ok) return await res.json()
     } catch {
-      /* try next */
+      /* static or offline */
     }
+  }
+  try {
+    const res = await fetch(demoJsonUrl('demo-maastricht-2050.json'))
+    if (res.ok) return await res.json()
+  } catch {
+    /* ignore */
   }
   return null
 }
@@ -172,6 +185,8 @@ export default function App() {
       opts?: {
         saveAsDemo?: boolean
         saveAsDemo2050?: boolean
+        /** Only then may Maastricht JSON be used when API is down. */
+        explicitDemo?: boolean
       },
     ): Promise<RecommendResponse | null> => {
       let siteProfile = climateProfile
@@ -206,6 +221,29 @@ export default function App() {
           sun_class_source: grid.label,
         }
         setProfile(siteProfile)
+      }
+
+      if (STATIC_HOST) {
+        if (opts?.explicitDemo) {
+          const demo = scenario2050 ? await loadDemo2050Fallback() : await loadDemoFallback()
+          if (demo && !isStale(gen) && !signal.aborted) {
+            setProfile(demo.siteProfile)
+            setPlants(demo.plants)
+            setZonePlants(demo.zonePlants ?? [])
+            setRankingNote('Cached Maastricht demo (static site)')
+            if (!scenario2050) {
+              setPresentProfile(demo.siteProfile)
+              setPresentPlants(demo.plants)
+            }
+          }
+        } else if (!isStale(gen)) {
+          setPlants([])
+          setZonePlants([])
+          setError(t(lang, 'staticNoRanking'))
+          setRankingNote(null)
+        }
+        if (!isStale(gen)) setBusyLabel(null)
+        return null
       }
 
       setBusyLabel('Soil, climate context, and plant ranking…')
@@ -262,14 +300,22 @@ export default function App() {
         return data
       } catch (e) {
         if (signal.aborted) return null
-        const demo = scenario2050 ? await loadDemo2050Fallback() : await loadDemoFallback()
-        if (demo && !isStale(gen)) {
-          setProfile(demo.siteProfile)
-          setPlants(demo.plants)
-          setError('Could not reach API — showing cached demo.')
-          setRankingNote('Cached demo fallback')
+        const mayUseDemo =
+          opts?.explicitDemo || isDemoPlot(siteProfile.lat, siteProfile.lon)
+        if (mayUseDemo) {
+          const demo = scenario2050 ? await loadDemo2050Fallback() : await loadDemoFallback()
+          if (demo && !isStale(gen)) {
+            setProfile(demo.siteProfile)
+            setPlants(demo.plants)
+            setError('Could not reach API — showing cached Maastricht demo.')
+            setRankingNote('Cached demo fallback')
+          } else if (!isStale(gen)) {
+            setError(String((e as Error).message || e))
+          }
         } else if (!isStale(gen)) {
-          setError(String((e as Error).message || e))
+          setPlants([])
+          setError('Could not reach API — plant ranking unavailable for this plot.')
+          setRankingNote(null)
         }
         return null
       } finally {
@@ -350,9 +396,11 @@ export default function App() {
         if (isStale(gen) || signal.aborted) return
         setProfile(climateProfile)
         setPresentProfile(climateProfile)
-        const bag = await fetch(`/api/bag3d?lat=${sel.lat}&lon=${sel.lon}`, { signal })
-          .then((r) => r.json())
-          .catch(() => null)
+        const bag = STATIC_HOST
+          ? null
+          : await fetch(`/api/bag3d?lat=${sel.lat}&lon=${sel.lon}`, { signal })
+              .then((r) => r.json())
+              .catch(() => null)
         if (isStale(gen)) return
         if (bag?.ok) {
           setBag3dNote(
@@ -360,7 +408,7 @@ export default function App() {
           )
         } else setBag3dNote('3DBAG: no data here for this buffer')
         const rec = await finishPlotPipeline(gen, signal, climateProfile, ring, buildingsRef.current)
-        if (rec?.siteProfile && !isStale(gen)) {
+        if (rec?.siteProfile && !isStale(gen) && !STATIC_HOST) {
           const g = await fetch('/api/guild', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -378,14 +426,7 @@ export default function App() {
       } catch (e) {
         if (signal.aborted) return
         setBusyLabel(null)
-        const demo = await loadDemoFallback()
-        if (demo && !isStale(gen)) {
-          setProfile(demo.siteProfile)
-          setPresentProfile(demo.siteProfile)
-          setPlants(demo.plants)
-          setPresentPlants(demo.plants)
-          setError('Climate fetch failed — showing cached Maastricht demo.')
-        } else if (!isStale(gen)) {
+        if (!isStale(gen)) {
           setError(String((e as Error).message || e))
         }
       }
@@ -451,6 +492,7 @@ export default function App() {
       setPolygonRing(ring)
       await finishPlotPipeline(gen, signal, climateProfile, ring, buildings, {
         saveAsDemo: true,
+        explicitDemo: true,
       })
     } catch {
       if (isStale(gen)) return
@@ -485,6 +527,7 @@ export default function App() {
       setClimate2050Note(`${t(lang, 'resilient')}: ${deltaNote}`)
       const rec = await finishPlotPipeline(gen, signal, p2050, polygonRing, buildings, {
         saveAsDemo2050: true,
+        explicitDemo: isDemoPlot(base.lat, base.lon),
       })
       if (rec) {
         const before = new Set(presentPlants.map((p) => p.name))
@@ -536,6 +579,12 @@ export default function App() {
   return (
     <div className="demo-page">
       <div className="demo-shell" ref={reportRef}>
+        {STATIC_HOST && (
+          <div className="static-host-banner" role="status">
+            {t(lang, 'staticHostBanner')}
+          </div>
+        )}
+
         <header className="demo-header-card">
           <div className="demo-header-top">
             <a className="demo-brand" href="/">

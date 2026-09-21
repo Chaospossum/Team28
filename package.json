@@ -9,6 +9,7 @@
     "dev:web": "vite",
     "dev:server": "node --watch-path=./server --watch server/index.js",
     "build": "tsc -b && vite build",
+    "build:pages": "tsc -b && VITE_BASE=/Team28/ VITE_STATIC_HOST=1 vite build && cp dist/index.html dist/404.html",
     "lint": "oxlint",
     "preview": "vite preview --port 43123 --host 127.0.0.1",
     "test": "vitest run"
