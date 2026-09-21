@@ -359,3 +359,23 @@ button:disabled {
   min-height: 4px;
   padding: 0;
 }
+
+.year-heat {
+  display: grid;
+  gap: 1px;
+  margin-top: 0.35rem;
+}
+
+.heat-cell {
+  aspect-ratio: 1;
+  border-radius: 1px;
+}
+
+.heat-empty {
+  background: transparent;
+}
+
+.heat-val {
+  font-size: 0.45rem;
+  line-height: 1;
+}

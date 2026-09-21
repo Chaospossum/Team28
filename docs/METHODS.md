@@ -38,7 +38,23 @@ When ESA WorldCover WMS fails, `buildingCount100m / 40` caps built-up fraction; 
 
 ## Shadow (Phase 3)
 
-Geometric direct sun on vertical walls via `suncalc`, 15 min steps; effective sun can multiply by Open-Meteo clear-sky fraction (estimate). Full 1–2 m grid worker deferred; 3DBAG heights loaded for context.
+Web Worker (`sunGrid.worker.ts`) runs `computeSunGrid`: 1–2 m cells inside plot, cap 2000, 15 min rays on the 21st of each month. Building shadows: simplified ground shadow from footprint + height. Effective sun = geometric growing-season mean × clear-sky fraction (`archive sunshine / radiation hours`, else 0.65 default). User-drawn rectangles saved in share URL; heights editable in sidebar.
+
+## Frost / GDD (Phase 4)
+
+From archive daily `temperature_2m_min/max`: median frost days/year, spring/fall frost DOY percentiles, Apr–Sep GDD base 5°C (modeled).
+
+## 2050 delta
+
+Baseline `1991–2020` vs future `2045–2050`, model `EC_Earth3P_HR` only (multi-model list rejected by Climate API in live-check). Spread = min–max of growing-season means across future years. No radiation multiplier.
+
+## Fungi
+
+GBIF FungalRoot dataset key `744edc21-8dd2-474e-8a0b-b8c3d56a3c2d`; parses `Mycorrhiza type` measurement. Urban → low confidence label.
+
+## LLM
+
+When API key present: rephrase `why` only from `why_structured` facts; numeric validation drops hallucinated numbers.
 
 ## Guild
 

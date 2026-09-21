@@ -12,6 +12,7 @@ import { fetchPdokSoilType } from './pdok.js'
 import { fetchSoilGrids, textureClass } from './soil.js'
 import { suggestGuild, loadInteractions } from './guild.js'
 import { classifySiteContext } from './urban.js'
+import { fetchFungalTraits } from './fungi.js'
 import { buildStructuredWhy, nearMisses } from './why.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -82,38 +83,69 @@ app.get('/api/pdok', async (req, res) => {
   res.json({ soil_type_nl })
 })
 
+function sunClassFromHours(hours) {
+  if (hours == null) return 'part shade'
+  if (hours >= 6) return 'full sun'
+  if (hours >= 3) return 'part shade'
+  return 'shade'
+}
+
+async function buildRecommendations(siteProfile, prefs, lang) {
+  let shortlist = filterEcoCrop(siteProfile, 50)
+  if (prefs) shortlist = rankWithGoals(shortlist, siteProfile, prefs).slice(0, 30)
+  const { plants: ranked, usedLlm, source } = await rankPlants(siteProfile, shortlist, lang ?? 'en')
+  const byName = new Map(shortlist.map((s) => [s.name.toLowerCase(), s]))
+  const plants = ranked.map((p) => {
+    const s = byName.get(p.name.toLowerCase())
+    if (!s) return p
+    return {
+      ...p,
+      why_structured: buildStructuredWhy(s, siteProfile),
+      ranges: {
+        tmin: s.tmin,
+        tmax: s.tmax,
+        rmin: s.rmin,
+        rmax: s.rmax,
+        phmin: s.phmin,
+        phmax: s.phmax,
+        limn: s.limn,
+        limx: s.limx,
+      },
+    }
+  })
+  return { plants, shortlist, usedLlm, source }
+}
+
 app.post('/api/recommend', async (req, res) => {
-  const { siteProfile, saveAsDemo, saveAsDemo2050, lang, prefs } = req.body ?? {}
+  const { siteProfile, saveAsDemo, saveAsDemo2050, lang, prefs, zoneHours } = req.body ?? {}
   if (!siteProfile?.lat || !siteProfile?.lon) {
     return res.status(400).json({ error: 'siteProfile required' })
   }
 
   try {
-    let shortlist = filterEcoCrop(siteProfile, 50)
-    if (prefs) shortlist = rankWithGoals(shortlist, siteProfile, prefs).slice(0, 30)
-    const { plants: ranked, usedLlm, source } = await rankPlants(siteProfile, shortlist, lang ?? 'en')
-    const byName = new Map(shortlist.map((s) => [s.name.toLowerCase(), s]))
-    const plants = ranked.map((p) => {
-      const s = byName.get(p.name.toLowerCase())
-      if (!s) return p
-      return {
-        ...p,
-        why_structured: buildStructuredWhy(s, siteProfile),
-        ranges: {
-          tmin: s.tmin,
-          tmax: s.tmax,
-          rmin: s.rmin,
-          rmax: s.rmax,
-          phmin: s.phmin,
-          phmax: s.phmax,
-          limn: s.limn,
-          limx: s.limx,
-        },
+    const { plants, shortlist, usedLlm, source } = await buildRecommendations(
+      siteProfile,
+      prefs,
+      lang ?? 'en',
+    )
+    const zonePlants = []
+    if (zoneHours && typeof zoneHours === 'object') {
+      for (const zone of ['full', 'part', 'shade']) {
+        const hours = zoneHours[zone]
+        if (hours == null) continue
+        const zProfile = {
+          ...siteProfile,
+          sun_hours_per_day: hours,
+          sun_class: sunClassFromHours(hours),
+        }
+        const zRec = await buildRecommendations(zProfile, prefs, lang ?? 'en')
+        zonePlants.push({ zone, sun_hours: hours, plants: zRec.plants.slice(0, 4) })
       }
-    })
+    }
     const payload = {
       siteProfile,
       plants,
+      zonePlants,
       shortlistCount: shortlist.length,
       rankingSource: source,
       usedLlm,
@@ -165,6 +197,14 @@ app.post('/api/enrich', async (req, res) => {
   }
 
   res.json({ siteProfile: enriched, soilOk: soil.ok, pdokOk: !!pdok })
+})
+
+app.get('/api/fungi', async (req, res) => {
+  const scientificName = req.query.scientificName ?? req.query.name
+  const urban = req.query.urban === '1' || req.query.urban === 'true'
+  if (!scientificName) return res.status(400).json({ error: 'scientificName required' })
+  const data = await fetchFungalTraits(String(scientificName), { urban })
+  res.json(data)
 })
 
 app.get('/api/bag3d', async (req, res) => {

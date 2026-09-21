@@ -19,7 +19,8 @@ export async function classifySiteContext(lat, lon) {
       bag.ok
         ? `3DBAG pand count in 100 m (${bag.resolution}, ${bag.fetched_at}, measured)`
         : '3DBAG: no data here',
-      'ESA WorldCover: not integrated (WMS live-check failed; see DATA_SOURCES.md)',
+      'ESA WorldCover: not integrated (Terrascope WMS INTERNAL_ERROR 2026-09-21)',
+      'CBS Bodemgebruik WMS: not integrated (geodata.nationaalgeoregister.nl DNS fail 2026-09-21)',
     ],
     uhi_note:
       className === 'urban'

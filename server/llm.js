@@ -1,4 +1,5 @@
 import { shortlistFallback } from './ecocrop.js'
+import { whySentence } from './why.js'
 
 function stripFences(text) {
   return text
@@ -8,11 +9,43 @@ function stripFences(text) {
     .trim()
 }
 
-async function callAnthropic(siteProfile, shortlist, lang) {
+const LANG_NAMES = { en: 'English', nl: 'Dutch', fr: 'French', de: 'German' }
+
+function buildRephrasePrompt(plants, lang = 'en') {
+  const language = LANG_NAMES[lang] ?? LANG_NAMES.en
+  const facts = plants.map((p) => ({
+    name: p.name,
+    facts: (p.why_structured ?? []).map((w) => w.text).join(' '),
+    water_need: p.water_need,
+    sun_need: p.sun_need,
+    risk: p.risk,
+  }))
+  return `Rephrase each plant "why" in ${language} for gardeners.
+RULES: Use ONLY facts from the "facts" field. Do NOT add numbers, sources, or claims not already in facts.
+Keep the same plant names. Return ONLY JSON array:
+[{"name":"...","why":"..."}]
+Input:
+${JSON.stringify(facts, null, 2)}`
+}
+
+function extractNumbers(text) {
+  const matches = text.match(/-?\d+(\.\d+)?/g) ?? []
+  return new Set(matches.map((n) => Number(n).toFixed(2)))
+}
+
+function whyIsSafe(originalFacts, newWhy) {
+  const allowed = extractNumbers(originalFacts)
+  const used = extractNumbers(newWhy)
+  for (const n of used) {
+    if (!allowed.has(n)) return false
+  }
+  return true
+}
+
+async function callAnthropicRephrase(plants, lang) {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return null
-
-  const prompt = buildPrompt(siteProfile, shortlist, lang)
+  const prompt = buildRephrasePrompt(plants, lang)
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -28,15 +61,13 @@ async function callAnthropic(siteProfile, shortlist, lang) {
   })
   if (!res.ok) throw new Error(`anthropic_${res.status}`)
   const data = await res.json()
-  const text = data.content?.[0]?.text ?? ''
-  return parsePlantsJson(text)
+  return data.content?.[0]?.text ?? ''
 }
 
-async function callOpenAI(siteProfile, shortlist, lang) {
+async function callOpenAIRephrase(plants, lang) {
   const key = process.env.OPENAI_API_KEY
   if (!key) return null
-
-  const prompt = buildPrompt(siteProfile, shortlist, lang)
+  const prompt = buildRephrasePrompt(plants, lang)
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -46,44 +77,25 @@ async function callOpenAI(siteProfile, shortlist, lang) {
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
+      temperature: 0.2,
     }),
   })
   if (!res.ok) throw new Error(`openai_${res.status}`)
   const data = await res.json()
-  const text = data.choices?.[0]?.message?.content ?? ''
-  return parsePlantsJson(text)
+  return data.choices?.[0]?.message?.content ?? ''
 }
 
-const LANG_NAMES = { en: 'English', nl: 'Dutch', fr: 'French', de: 'German' }
-
-function buildPrompt(siteProfile, shortlist, lang = 'en') {
-  const names = shortlist.map((s) => s.name).join(', ')
-  const language = LANG_NAMES[lang] ?? LANG_NAMES.en
-  return `You are a horticulture advisor for home gardeners in Europe.
-Respond in ${language} only.
-
-Site profile (use these exact numbers in your reasons):
-${JSON.stringify(siteProfile, null, 2)}
-
-Candidate plants from EcoCrop (choose from this list only):
-${names}
-
-Rank the 8 best plants for this site. Return ONLY a JSON array, no markdown:
-[{"name":"...","why":"one sentence citing actual site numbers","water_need":"low|moderate|high","sun_need":"full sun|part shade|shade","risk":"brief risk note"}]`
-}
-
-function parsePlantsJson(text) {
+function mergeRephrased(basePlants, text) {
   const cleaned = stripFences(text)
   const parsed = JSON.parse(cleaned)
   if (!Array.isArray(parsed)) throw new Error('not_array')
-  return parsed.slice(0, 8).map((p) => ({
-    name: String(p.name),
-    why: String(p.why),
-    water_need: String(p.water_need ?? 'moderate'),
-    sun_need: String(p.sun_need ?? 'part shade'),
-    risk: String(p.risk ?? ''),
-  }))
+  const byName = new Map(parsed.map((p) => [String(p.name).toLowerCase(), String(p.why)]))
+  return basePlants.map((p) => {
+    const facts = (p.why_structured ?? []).map((w) => w.text).join(' ')
+    const candidate = byName.get(p.name.toLowerCase())
+    if (!candidate || !whyIsSafe(facts, candidate)) return p
+    return { ...p, why: candidate }
+  })
 }
 
 export async function rankPlants(siteProfile, shortlist, lang = 'en') {
@@ -91,33 +103,22 @@ export async function rankPlants(siteProfile, shortlist, lang = 'en') {
     return { plants: [], usedLlm: false, source: 'empty_shortlist' }
   }
 
-  const tryOnce = async () => {
-    if (process.env.ANTHROPIC_API_KEY) return await callAnthropic(siteProfile, shortlist, lang)
-    if (process.env.OPENAI_API_KEY) return await callOpenAI(siteProfile, shortlist, lang)
-    return null
+  const basePlants = shortlistFallback(shortlist, siteProfile, 8)
+  const hasKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY
+  if (!hasKey) {
+    return { plants: basePlants, usedLlm: false, source: 'ecocrop_fallback' }
   }
 
   try {
-    let plants = await tryOnce()
-    if (!plants) {
-      return {
-        plants: shortlistFallback(shortlist, siteProfile),
-        usedLlm: false,
-        source: 'ecocrop_fallback',
-      }
-    }
-    return { plants, usedLlm: true, source: 'llm' }
+    const text = process.env.ANTHROPIC_API_KEY
+      ? await callAnthropicRephrase(basePlants, lang)
+      : await callOpenAIRephrase(basePlants, lang)
+    if (!text) return { plants: basePlants, usedLlm: false, source: 'ecocrop_fallback' }
+    const plants = mergeRephrased(basePlants, text)
+    return { plants, usedLlm: true, source: 'llm_rephrase_only' }
   } catch {
-    try {
-      const plants = await tryOnce()
-      if (plants) return { plants, usedLlm: true, source: 'llm_retry' }
-    } catch {
-      /* fall through */
-    }
-    return {
-      plants: shortlistFallback(shortlist, siteProfile),
-      usedLlm: false,
-      source: 'ecocrop_parse_fallback',
-    }
+    return { plants: basePlants, usedLlm: false, source: 'ecocrop_rephrase_fallback' }
   }
 }
+
+export { whySentence }

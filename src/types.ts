@@ -1,3 +1,22 @@
+export interface FrostGddMetrics {
+  frost_days_median: number | null
+  last_spring_frost_doy_p10: number | null
+  first_fall_frost_doy_p90: number | null
+  gdd_base5_growing: number | null
+  source: string
+  data_kind: 'modeled'
+}
+
+export interface Climate2050Delta {
+  baseline_period: string
+  future_period: string
+  model: string
+  temp_growing_delta_c: number | null
+  rain_delta_mm: number | null
+  future_temp_spread_c: number | null
+  note: string
+}
+
 export interface SiteContext {
   class: string
   builtUpFraction: number
@@ -33,6 +52,20 @@ export interface SiteProfile {
   sources: string[]
   data_resolution_note: string
   manual_shade?: boolean
+  frost_gdd?: FrostGddMetrics
+  climate_2050_delta?: Climate2050Delta
+}
+
+export interface PlotBuilding {
+  id: string
+  ring: number[][] 
+  height_m: number
+}
+
+export interface SunZonePlants {
+  zone: 'full' | 'part' | 'shade'
+  sun_hours: number | null
+  plants: PlantRecommendation[]
 }
 
 export interface PlantRanges {
@@ -72,6 +105,7 @@ export interface PlantRecommendation {
 export interface RecommendResponse {
   siteProfile: SiteProfile
   plants: PlantRecommendation[]
+  zonePlants?: SunZonePlants[]
   shortlistCount: number
   rankingSource?: string
   usedLlm?: boolean

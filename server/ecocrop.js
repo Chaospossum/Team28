@@ -151,6 +151,10 @@ export function filterEcoCrop(site, cap = 30) {
     if (!inRange(temp, tmin, tmax)) continue
     if (!inRange(rain, rmin, rmax)) continue
     if (ph != null && !inRange(ph, phmin, phmax)) continue
+    const sunH = site.sun_hours_per_day
+    const limn = num(row.LIMN)
+    const limx = num(row.LIMX)
+    if (sunH != null && limn != null && limx != null && !inRange(sunH, limn, limx)) continue
 
     const name = displayName(row)
     matches.push({
