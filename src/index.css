@@ -1,8 +1,15 @@
 :root {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --rp-forest: #26492f;
+  --rp-forest-deep: #1e3b27;
+  --rp-page: #33593b;
+  --rp-lime: #dcf16a;
+  --rp-cream: #eaf1db;
+  --rp-muted: #5a7050;
+  --rp-ink: #1e3b27;
+  font-family: 'Poppins', system-ui, sans-serif;
   line-height: 1.5;
-  color: #1a2e24;
-  background: #eef2ed;
+  color: var(--rp-ink);
+  background: var(--rp-page);
 }
 
 * {
@@ -11,4 +18,21 @@
 
 body {
   margin: 0;
+}
+
+a {
+  color: var(--rp-lime);
+}
+
+a:hover {
+  color: #fff;
+}
+
+input[type='range'] {
+  accent-color: var(--rp-page);
+  width: 100%;
+}
+
+.leaflet-container {
+  font-family: 'Poppins', system-ui, sans-serif;
 }

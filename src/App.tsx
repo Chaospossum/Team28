@@ -8,13 +8,13 @@ import { t } from './i18n'
 import { MapDraw, type PlotSelection } from './MapDraw'
 import {
   LayerToggles,
-  PlotScoreHero,
   RecommendedPlantsSection,
   ShareExport,
   SunHeatmapCard,
   WaterSavingCard,
   zoneHoursSummary,
 } from './Phase5UI'
+import { computePlotScore } from './score'
 import { readShareFromUrl } from './share'
 import { defaultPrefs, type SharePayload } from './shareState'
 import { effortHoursLabel } from './effort'
@@ -64,7 +64,7 @@ async function loadDemo2050Fallback(): Promise<RecommendResponse | null> {
 }
 
 export default function App() {
-  const reportRef = useRef<HTMLElement>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
   const [lang, setLang] = useState<Lang>('en')
   const [demoTrigger, setDemoTrigger] = useState(0)
   const [busyLabel, setBusyLabel] = useState<string | null>(null)
@@ -475,90 +475,137 @@ export default function App() {
       }
     : null
 
+  const plotScore = profile ? computePlotScore(profile) : null
+
   return (
-    <div className="app">
-      <div className="map-panel">
-        <MapDraw
-          onSelect={handlePlot}
-          demoLat={DEMO_LAT}
-          demoLon={DEMO_LON}
-          triggerDemo={demoTrigger}
-          initialRing={restoreRing}
-          initialBuildings={initialBuildings}
-          onBuildingsChange={setBuildings}
-          radiationMj={profile?.radiation_mj ?? null}
-          layers={mapLayers}
-          lang={lang}
-        />
-        <div className="map-overlay-legend" aria-hidden="true">
-          <span className={mapLayers.radiation ? 'on' : ''}>{t(lang, 'layerRadiation')}</span>
-          <span className={mapLayers.pdok ? 'on' : ''}>{t(lang, 'layerPdok')}</span>
-          <span className={buildings.length > 0 ? 'on' : ''}>{t(lang, 'buildingsLegend')}</span>
-        </div>
-      </div>
-      <aside className="sidebar sidebar-plot-first" ref={reportRef}>
-        <div className="lang-row">
-          {(['en', 'nl', 'fr', 'de'] as Lang[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              className={l === lang ? '' : 'secondary lang-btn'}
-              onClick={() => setLang(l)}
-            >
-              {l.toUpperCase()}
-            </button>
-          ))}
-        </div>
-        <h1>{t(lang, 'title')}</h1>
-        <p className="subtitle">{t(lang, 'subtitle')}</p>
-
-        <div className="toolbar">
-          <button type="button" onClick={() => void loadDemo()}>{t(lang, 'loadDemo')}</button>
-          <button type="button" className="secondary" onClick={clearApp}>
-            {t(lang, 'clear')}
-          </button>
-        </div>
-
-        {busyLabel && (
-          <p className="meta note loading-honest" aria-live="polite">
-            <span className="spinner" /> {busyLabel}
-          </p>
-        )}
-
-        {error && <div className="error-banner">{error}</div>}
-
-        {profile && <PlotScoreHero profile={profile} lang={lang} />}
-
-        {profile && plants.length > 0 && (
-          <RecommendedPlantsSection
-            profile={profile}
-            plants={plants}
-            lang={lang}
-            rankingNote={rankingNote}
-            prefs={prefs}
-            onSelectPlant={setSelectedPlant}
-          />
-        )}
-
-        {profile && plants.length > 0 && (
-          <WaterSavingCard profile={profile} plants={plants} lang={lang} />
-        )}
-
-        {zonePlants.length > 0 && (
-          <div className="card zone-summary">
-            <h2>{t(lang, 'zoneSun')} <span className="estimate-tag">{t(lang, 'estimate')}</span></h2>
-            {zonePlants.map((z) => (
-              <div key={z.zone}>
-                <p className="meta">
-                  <strong>{z.zone}</strong> ~{fmt(z.sun_hours, 1)} h/day effective
-                </p>
-                <p>{z.plants.map((p) => p.name).join(', ')}</p>
+    <div className="demo-page">
+      <div className="demo-shell" ref={reportRef}>
+        <header className="demo-header-card">
+          <div className="demo-header-top">
+            <a className="demo-brand" href="/">
+              <img src="/brand-mark.svg" alt="" width={36} height={36} />
+              <span>{t(lang, 'title')}</span>
+            </a>
+            <div className="demo-header-actions">
+              <div className="lang-row">
+                {(['en', 'nl', 'fr', 'de'] as Lang[]).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    className={l === lang ? '' : 'secondary'}
+                    onClick={() => setLang(l)}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                ))}
               </div>
-            ))}
+              <span className="demo-badge">{t(lang, 'demoBadge')}</span>
+            </div>
           </div>
-        )}
+          <h1 className="demo-hero">
+            {t(lang, 'heroHead')} <em>{t(lang, 'heroEm')}</em>
+          </h1>
+          <p className="demo-hero-sub">{t(lang, 'subtitle')}</p>
+        </header>
 
-        <details className="card site-details">
+        <div className="demo-main-row">
+          <div className="demo-col-map">
+            <div className="demo-map-panel">
+              <div className="demo-map-toolbar">
+                <button type="button" onClick={() => void loadDemo()}>{t(lang, 'loadDemo')}</button>
+                <button type="button" className="secondary" onClick={clearApp}>
+                  {t(lang, 'clear')}
+                </button>
+                <label className="scenario-inline">
+                  <input
+                    type="checkbox"
+                    checked={scenario2050}
+                    onChange={(e) => void toggle2050(e.target.checked)}
+                  />
+                  {t(lang, 'climate2050')}
+                </label>
+              </div>
+              <div className="map-panel">
+                <MapDraw
+                  onSelect={handlePlot}
+                  demoLat={DEMO_LAT}
+                  demoLon={DEMO_LON}
+                  triggerDemo={demoTrigger}
+                  initialRing={restoreRing}
+                  initialBuildings={initialBuildings}
+                  onBuildingsChange={setBuildings}
+                  radiationMj={profile?.radiation_mj ?? null}
+                  layers={mapLayers}
+                  lang={lang}
+                />
+                <div className="map-overlay-legend" aria-hidden="true">
+                  <span className={mapLayers.radiation ? 'on' : ''}>{t(lang, 'layerRadiation')}</span>
+                  <span className={mapLayers.pdok ? 'on' : ''}>{t(lang, 'layerPdok')}</span>
+                  <span className={buildings.length > 0 ? 'on' : ''}>{t(lang, 'buildingsLegend')}</span>
+                </div>
+              </div>
+              {(busyLabel || error) && (
+                <p className="demo-map-status" aria-live="polite">
+                  {busyLabel && <><span className="spinner" /> {busyLabel}</>}
+                  {error && <span className="error-banner">{error}</span>}
+                </p>
+              )}
+            </div>
+
+            {profile && plotScore && (
+              <section className="demo-site-panel card">
+                <div className="demo-site-head">
+                  <h2>{t(lang, 'siteProfile')}</h2>
+                  <span className="meta">{profile.climate_period ?? '1991–2020'}</span>
+                </div>
+                <div className="demo-stat-grid">
+                  <div>
+                    <p className="stat-label">{t(lang, 'statSun')}</p>
+                    <p className="stat-value">{fmt(profile.sun_hours_per_day, 1)} h/day</p>
+                    <p className="stat-note">{profile.sun_class} · {t(lang, 'estimate')}</p>
+                  </div>
+                  <div>
+                    <p className="stat-label">{t(lang, 'statRain')}</p>
+                    <p className="stat-value">{fmt(profile.rain_mm_year, 0)} mm/yr</p>
+                    <p className="stat-note">{t(lang, 'modeled')}</p>
+                  </div>
+                  <div>
+                    <p className="stat-label">{t(lang, 'statTemp')}</p>
+                    <p className="stat-value">{fmt(profile.temp_growing_season, 1)} °C</p>
+                    <p className="stat-note">{t(lang, 'modeled')}</p>
+                  </div>
+                  <div>
+                    <p className="stat-label">{t(lang, 'statSoil')}</p>
+                    <p className="stat-value">{fmt(profile.soil_ph, 1)} pH</p>
+                    <p className="stat-note">
+                      {profile.soil_type_nl ??
+                        (profile.pdok_unavailable ? t(lang, 'noNlSoil') : profile.texture_class)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="stat-label">{t(lang, 'statBed')}</p>
+                    <p className="stat-value">{fmt(profile.area_m2, 0)} m²</p>
+                    <p className="stat-note">
+                      {fmt(profile.lat, 4)}°, {fmt(profile.lon, 4)}°
+                    </p>
+                  </div>
+                </div>
+                <div className="demo-score-row">
+                  <div className="demo-score-circle" aria-hidden="true">{plotScore.value}</div>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>
+                      {t(lang, 'plotScore')} ({t(lang, 'estimate')})
+                    </p>
+                    <p className="meta" style={{ marginTop: 4 }}>{plotScore.verdict}</p>
+                  </div>
+                </div>
+                <p className="honesty">{t(lang, 'honesty')}</p>
+                {climate2050Note && <p className="meta note">{climate2050Note}</p>}
+                {plantDiff && scenario2050 && <p className="meta">{plantDiff}</p>}
+              </section>
+            )}
+
+            <details className="demo-advanced site-details">
           <summary>{t(lang, 'siteProfile')}</summary>
           {!profile && <p className="meta">{t(lang, 'drawPlotHint')}</p>}
           {profile && (
@@ -628,9 +675,9 @@ export default function App() {
               <p className="meta">Sources: {profile.sources.join(' · ')}</p>
             </div>
           )}
-        </details>
+            </details>
 
-        <details className="card map-tools">
+            <details className="demo-advanced map-tools">
           <summary>{t(lang, 'mapLayersShade')}</summary>
           <LayerToggles lang={lang} layers={mapLayers} setLayers={setMapLayers} />
           {bag3dNote && <p className="meta note">{bag3dNote}</p>}
@@ -683,36 +730,74 @@ export default function App() {
             />
             {t(lang, 'shade')}
           </label>
-        </details>
+            </details>
 
-        <details className="card goals-details">
-          <summary>{t(lang, 'yourGoals')}</summary>
-          <UserGoals prefs={prefs} onChange={setPrefs} lang={lang} />
-          <p className="meta note">{effortHoursLabel(prefs)}</p>
-        </details>
+            {profile && (
+              <>
+                <FungiPanel
+                  scientificName={selectedPlant?.name ?? plants[0]?.name ?? null}
+                  urban={profile?.site_context?.class === 'urban'}
+                />
+                <WhyNotPanel profile={profile} />
+              </>
+            )}
+          </div>
 
-        <label className="toggle-row scenario-row">
-          <input
-            type="checkbox"
-            checked={scenario2050}
-            onChange={(e) => void toggle2050(e.target.checked)}
-          />
-          {t(lang, 'climate2050')} <span className="estimate-tag">{t(lang, 'estimate')}</span>
-        </label>
-        {climate2050Note && <p className="meta note">{climate2050Note}</p>}
-        {plantDiff && scenario2050 && <p className="meta">{plantDiff}</p>}
+          <div className="demo-col-side">
+            <div className="demo-goals-panel">
+              <UserGoals prefs={prefs} onChange={setPrefs} lang={lang} />
+              <p className="meta note" style={{ padding: '0 22px 16px', margin: 0 }}>
+                {effortHoursLabel(prefs)}
+              </p>
+            </div>
 
-        <FungiPanel
-          scientificName={selectedPlant?.name ?? plants[0]?.name ?? null}
-          urban={profile?.site_context?.class === 'urban'}
-        />
+            <div className="demo-plants-panel">
+              {profile && plants.length > 0 ? (
+                <RecommendedPlantsSection
+                  profile={profile}
+                  plants={plants}
+                  lang={lang}
+                  rankingNote={rankingNote}
+                  prefs={prefs}
+                  onSelectPlant={setSelectedPlant}
+                />
+              ) : (
+                <>
+                  <h2 style={{ margin: '0 0 16px', color: '#fff', fontSize: 20, fontWeight: 600 }}>
+                    {t(lang, 'recommended')}
+                  </h2>
+                  <p className="demo-plants-empty">{t(lang, 'noPlantsYet')}</p>
+                </>
+              )}
+            </div>
 
-        {profile && <WhyNotPanel profile={profile} />}
+            {profile && plants.length > 0 && (
+              <WaterSavingCard profile={profile} plants={plants} lang={lang} />
+            )}
 
-        <ShareExport sharePayload={sharePayload} lang={lang} reportRef={reportRef} />
+            {zonePlants.length > 0 && (
+              <div className="card zone-summary demo-site-panel">
+                <h2>{t(lang, 'zoneSun')} <span className="estimate-tag">{t(lang, 'estimate')}</span></h2>
+                {zonePlants.map((z) => (
+                  <div key={z.zone}>
+                    <p className="meta">
+                      <strong>{z.zone}</strong> ~{fmt(z.sun_hours, 1)} h/day effective
+                    </p>
+                    <p>{z.plants.map((p) => p.name).join(', ')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
-        <p className="honesty">{t(lang, 'honesty')}</p>
-      </aside>
+            <ShareExport sharePayload={sharePayload} lang={lang} reportRef={reportRef} />
+          </div>
+        </div>
+
+        <footer className="demo-footer">
+          <span>{t(lang, 'footerLine')}</span>
+          <span>{t(lang, 'footerOpenData')}</span>
+        </footer>
+      </div>
     </div>
   )
 }
