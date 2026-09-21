@@ -1,4 +1,4 @@
-import type { SiteProfile } from './types'
+import type { PlantRanges, SiteProfile } from './types'
 
 export interface RangeBar {
   label: string
@@ -22,19 +22,22 @@ function barStatus(site: number | null, min: number | null, max: number | null):
 
 export function plantRangeBars(
   profile: SiteProfile,
-  ranges: { tmin?: number | null; tmax?: number | null; rmin?: number | null; rmax?: number | null; phmin?: number | null; phmax?: number | null },
+  ranges: PlantRanges,
 ): RangeBar[] {
   const sunHours = profile.sun_hours_per_day
-  const sunIdealMin = 4
-  const sunIdealMax = 7
+  const limn = ranges.limn ?? null
+  const limx = ranges.limx ?? null
+  const sunLabel = limn != null && limx != null ? 'Sun (EcoCrop)' : 'Sun (generic band)'
+  const sunMin = limn ?? 4
+  const sunMax = limx ?? 7
   return [
     {
-      label: 'Sun',
+      label: sunLabel,
       site: sunHours,
-      min: sunIdealMin,
-      max: sunIdealMax,
-      status: barStatus(sunHours, sunIdealMin, sunIdealMax),
-      unit: 'h/day',
+      min: sunMin,
+      max: sunMax,
+      status: barStatus(sunHours, sunMin, sunMax),
+      unit: 'h/day (estimate)',
     },
     {
       label: 'Rain',

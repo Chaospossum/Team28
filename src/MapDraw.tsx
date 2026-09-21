@@ -18,6 +18,7 @@ export interface PlotSelection {
   lat: number
   lon: number
   area_m2: number
+  polygon?: number[][] // [lon, lat] ring
 }
 
 function to3857(lon: number, lat: number) {
@@ -40,6 +41,7 @@ interface Props {
   demoLat: number
   demoLon: number
   triggerDemo: number
+  initialRing?: number[][] | null
   radiationMj: number | null
   layers: { radiation: boolean; pdok: boolean; ndvi: boolean }
 }
@@ -49,6 +51,7 @@ export function MapDraw({
   demoLat,
   demoLon,
   triggerDemo,
+  initialRing,
   radiationMj,
   layers,
 }: Props) {
@@ -148,7 +151,8 @@ export function MapDraw({
       const c = centroid(poly)
       const [lon, lat] = c.geometry.coordinates
       const area_m2 = area(poly)
-      onSelectRef.current({ lat, lon, area_m2 })
+      const ring = gj.geometry.coordinates[0] as number[][]
+      onSelectRef.current({ lat, lon, area_m2, polygon: ring })
       updateNdviOverlay()
     }
 
@@ -202,10 +206,28 @@ export function MapDraw({
     const poly = turfPolygon([ring])
     const c = centroid(poly)
     const [clon, clat] = c.geometry.coordinates
-    onSelectRef.current({ lat: clat, lon: clon, area_m2: area(poly) })
+    onSelectRef.current({ lat: clat, lon: clon, area_m2: area(poly), polygon: ring })
     updateNdviOverlay()
     updatePdokOverlay()
   }, [triggerDemo, demoLat, demoLon])
+
+  useEffect(() => {
+    if (!initialRing?.length || !mapRef.current || !layerRef.current) return
+    const map = mapRef.current
+    const drawn = layerRef.current
+    drawn.clearLayers()
+    const layer = L.polygon(initialRing.map(([lng, la]) => [la, lng]))
+    drawn.addLayer(layer)
+    plotLayerRef.current = layer
+    stylePlot(layer)
+    map.fitBounds(layer.getBounds(), { padding: [40, 40] })
+    const poly = turfPolygon([initialRing])
+    const c = centroid(poly)
+    const [clon, clat] = c.geometry.coordinates
+    onSelectRef.current({ lat: clat, lon: clon, area_m2: area(poly), polygon: initialRing })
+    updateNdviOverlay()
+    updatePdokOverlay()
+  }, [initialRing])
 
   return <div id="map" className="map-wrap" />
 }

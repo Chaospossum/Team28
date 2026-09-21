@@ -331,3 +331,31 @@ button:disabled {
 .cal-label {
   margin-top: 0.5rem;
 }
+
+.why-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+}
+
+.why-list.compact {
+  font-size: 0.72rem;
+}
+
+.why-ok {
+  color: #2d6a4f;
+}
+
+.why-bad {
+  color: #9b2226;
+}
+
+.calendar-wrap .workload {
+  margin-top: 0.2rem;
+}
+
+.cal-work {
+  background: #40916c;
+  min-height: 4px;
+  padding: 0;
+}

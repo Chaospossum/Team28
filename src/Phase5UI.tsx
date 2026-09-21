@@ -6,7 +6,10 @@ import { plantRangeBars } from './explain'
 import type { Lang } from './i18n'
 import { t } from './i18n'
 import { computePlotScore } from './score'
-import type { PlantRecommendation, SiteProfile } from './types'
+import { buildShareUrl } from './share'
+import type { SharePayload } from './shareState'
+import { monthlyWorkloadIndex } from './effort'
+import type { PlantRecommendation, SiteProfile, UserPrefs } from './types'
 import { estimateWaterSaving } from './water'
 
 export function PlotScoreHero({
@@ -113,42 +116,55 @@ export function WaterSavingCard({
 export function PlantCalendarStrip({
   profile,
   plant,
+  prefs,
 }: {
   profile: SiteProfile
   plant: PlantRecommendation
+  prefs?: UserPrefs
 }) {
   const months = plantingCalendar(profile, plant.name)
+  const workload = prefs ? monthlyWorkloadIndex(prefs) : null
   return (
-    <div className="calendar-strip" aria-label={`Calendar for ${plant.name}`}>
-      {months.map((m) => (
-        <div
-          key={m.month}
-          className={`cal-cell cal-${m.phase || 'idle'}`}
-          title={m.phase || 'dormant'}
-        >
-          {m.label}
+    <div className="calendar-wrap">
+      <div className="calendar-strip" aria-label={`Calendar for ${plant.name}`}>
+        {months.map((m) => (
+          <div
+            key={m.month}
+            className={`cal-cell cal-${m.phase || 'idle'}`}
+            title={m.phase || 'dormant'}
+          >
+            {m.label}
+          </div>
+        ))}
+      </div>
+      {workload && (
+        <div className="calendar-strip workload" aria-label="Monthly effort estimate">
+          {workload.map((w, i) => (
+            <div
+              key={i}
+              className="cal-cell cal-work"
+              style={{ opacity: 0.35 + (w / 100) * 0.65 }}
+              title={`~${w}% effort index`}
+            />
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }
 
 export function ShareExport({
-  profile,
+  sharePayload,
   lang,
   reportRef,
 }: {
-  profile: SiteProfile | null
+  sharePayload: SharePayload | null
   lang: Lang
   reportRef: React.RefObject<HTMLElement | null>
 }) {
   const copyLink = async () => {
-    if (!profile) return
-    const url = new URL(window.location.href)
-    url.searchParams.set('lat', profile.lat.toFixed(4))
-    url.searchParams.set('lon', profile.lon.toFixed(4))
-    url.searchParams.set('demo', '1')
-    await navigator.clipboard.writeText(url.toString())
+    if (!sharePayload) return
+    await navigator.clipboard.writeText(buildShareUrl(sharePayload))
   }
 
   const exportPdf = async () => {
@@ -166,10 +182,10 @@ export function ShareExport({
     <div className="card">
       <h2>{t(lang, 'share')}</h2>
       <div className="toolbar">
-        <button type="button" className="secondary" onClick={() => void copyLink()} disabled={!profile}>
+        <button type="button" className="secondary" onClick={() => void copyLink()} disabled={!sharePayload}>
           {t(lang, 'copyLink')}
         </button>
-        <button type="button" className="secondary" onClick={() => void exportPdf()} disabled={!profile}>
+        <button type="button" className="secondary" onClick={() => void exportPdf()} disabled={!sharePayload}>
           {t(lang, 'exportPdf')}
         </button>
       </div>
