@@ -41,6 +41,15 @@ Click **Load demo plot** for Maastricht (50.85°N, 5.69°E) or draw your own pol
 
 If APIs fail, `public/demo-maastricht.json` is used automatically (also refreshed after a successful demo run).
 
+## Phase 5 features
+
+- Plot score (0–100, estimate) with animated ring
+- Map layers: radiation polygon tint, PDOK soil WMS, NDVI **sample** overlay (Copernicus OAuth skipped)
+- Explain bars (sun / rain / pH), water-saving estimate, planting calendar (heuristic)
+- Climate **2050** toggle (Open-Meteo Climate API + cached fallback)
+- Share link + PDF export; EN/NL/FR/DE UI strings
+- Demo recording: `docs/demo.webm`
+
 ## Honesty
 
 Soil ≈250 m resolution; climate ≈km scale. Neighbourhood estimate — not a soil test.
