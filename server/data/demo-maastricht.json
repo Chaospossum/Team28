@@ -1,0 +1,85 @@
+{
+  "siteProfile": {
+    "lat": 50.85,
+    "lon": 5.69,
+    "area_m2": 12000,
+    "sun_hours_per_day": 7.41,
+    "radiation_mj": 11.56,
+    "rain_mm_year": 1191.5,
+    "temp_growing_season": 16.28,
+    "soil_ph": 6.2,
+    "clay_pct": 16.3,
+    "sand_pct": 19.7,
+    "soc": 26.8,
+    "soil_type_nl": null,
+    "sun_class": "full sun",
+    "texture_class": "loamy",
+    "moisture_class": "wet",
+    "sources": [
+      "Open-Meteo Archive 2023",
+      "SoilGrids v2.0 (cached demo)"
+    ],
+    "data_resolution_note": "Soil data ≈250 m resolution, climate ≈km scale. Neighbourhood estimate, not a soil test."
+  },
+  "plants": [
+    {
+      "name": "adzuki bean",
+      "why": "EcoCrop tolerates ~5-36°C, 530-1800 mm rain, pH 5-7.5.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "african potato",
+      "why": "EcoCrop tolerates ~?-?°C, ?-? mm rain, pH ?-?.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "African yam bean",
+      "why": "EcoCrop tolerates ~15-35°C, 800-1400 mm rain, pH 4.5-7.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "apple",
+      "why": "EcoCrop tolerates ~8-33°C, 500-3200 mm rain, pH 4.5-8.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "apricot",
+      "why": "EcoCrop tolerates ~7-40°C, 800-1470 mm rain, pH 5-8.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "asparagus",
+      "why": "EcoCrop tolerates ~6-38°C, 500-4000 mm rain, pH 4.5-8.2.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "asparagus bean",
+      "why": "EcoCrop tolerates ~14-38°C, 650-4100 mm rain, pH 4.3-7.5.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    },
+    {
+      "name": "barley",
+      "why": "EcoCrop tolerates ~2-40°C, 200-2000 mm rain, pH 6-8.",
+      "water_need": "moderate",
+      "sun_need": "varies",
+      "risk": "Verify locally; rule-based match only."
+    }
+  ],
+  "shortlistCount": 30,
+  "rankingSource": "ecocrop_fallback",
+  "usedLlm": false
+}
