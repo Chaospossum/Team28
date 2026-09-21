@@ -1,3 +1,4 @@
+import { siteSuitability } from './goals.js'
 import { whySentence, buildStructuredWhy } from './why.js'
 
 const PREFERRED_KEYWORDS = [
@@ -113,9 +114,21 @@ function displayName(row) {
   return row.ScientificName || 'Unknown'
 }
 
-function isPreferred(name) {
-  const lower = name.toLowerCase()
-  return PREFERRED_KEYWORDS.some((k) => lower.includes(k))
+/** Whole-word match, so "oat" doesn't hit "goat's rue" and "pea" doesn't hit "peach". */
+const PREFERRED_RE = new RegExp(`\\b(${PREFERRED_KEYWORDS.join('|')})(e?s)?\\b`, 'i')
+
+const GARDEN_CAT_RE = /vegetables|fruits|roots\/tubers|medicinals|ornamentals/i
+const CROP_CAT_RE = /vegetables|fruits|roots\/tubers/i
+
+/**
+ * Familiar garden plant: name keyword AND an EcoCrop category a gardener grows it for.
+ * Filters wild relatives like "Algerian oat" (cereal/forage) or "caley pea" (weed).
+ */
+function isPreferred(name, cat = '') {
+  if (!PREFERRED_RE.test(name)) return false
+  if (/weed/i.test(cat)) return false
+  if (/forage/i.test(cat) && !CROP_CAT_RE.test(cat)) return false
+  return GARDEN_CAT_RE.test(cat)
 }
 
 function inRange(value, min, max) {
@@ -154,7 +167,7 @@ export function filterEcoCrop(site, cap = 30) {
     matches.push({
       name,
       scientific: row.ScientificName,
-      preferred: isPreferred(name),
+      preferred: isPreferred(name, row.CAT),
       tmin,
       tmax,
       rmin,
@@ -172,12 +185,24 @@ export function filterEcoCrop(site, cap = 30) {
     })
   }
 
+  // Rank by fit to this site before capping (an alphabetical cap dropped everything after "c").
+  for (const m of matches) m.fit = siteSuitability(m, site).score
   matches.sort((a, b) => {
     if (a.preferred !== b.preferred) return a.preferred ? -1 : 1
+    if (b.fit !== a.fit) return b.fit - a.fit
     return a.name.localeCompare(b.name)
   })
 
-  return matches.slice(0, cap)
+  // EcoCrop has several rows per common name (e.g. two "pumpkin"s); keep the best-fitting one.
+  const seen = new Set()
+  const unique = matches.filter((m) => {
+    const key = m.name.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return unique.slice(0, cap)
 }
 
 function waterNeedFromRain(siteRain, rmin, rmax) {
