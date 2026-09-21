@@ -1,14 +1,14 @@
 {
   "siteProfile": {
-    "lat": 50.85,
-    "lon": 5.69,
-    "area_m2": 12000,
-    "sun_hours_per_day": 4.293355920289035,
+    "lat": 50.85006,
+    "lon": 5.69003,
+    "area_m2": 29058.000955651387,
+    "sun_hours_per_day": 4.422156597897706,
     "sun_hours_archive": 7.654900652610442,
-    "radiation_mj": 11.506193866374614,
-    "rain_mm_year": 829.4,
-    "temp_growing_season": 15.90562841530055,
-    "climate_period": "2019–2023",
+    "radiation_mj": 11.851379682365852,
+    "rain_mm_year": 716.3499999999999,
+    "temp_growing_season": 17.05617486338799,
+    "climate_period": "2045–2050 (EC_Earth3P_HR, estimate)",
     "sun_class_source": "radiation-based estimate (archive sunshine often inflated)",
     "soil_ph": 6.2,
     "clay_pct": 16.3,
@@ -20,6 +20,8 @@
     "moisture_class": "moderate",
     "sources": [
       "Open-Meteo Archive 2019–2023",
+      "SoilGrids v2.0 (0-5cm, ~6 km offset)",
+      "Open-Meteo Climate API 2050 scenario",
       "SoilGrids v2.0 (0-5cm, ~6 km offset)"
     ],
     "data_resolution_note": "Soil data ≈250 m resolution, climate ≈km scale. Neighbourhood estimate, not a soil test.",
@@ -28,7 +30,7 @@
   "plants": [
     {
       "name": "adzuki bean",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 5–36°C band; ~829 mm/yr rainfall matches its 530–1800 mm tolerance.",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 5–36°C band; ~716 mm/yr rainfall matches its 530–1800 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
       "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
@@ -44,7 +46,7 @@
     {
       "name": "african potato",
       "why": "part shade light suits typical garden culture here.",
-      "water_need": "moderate",
+      "water_need": "low",
       "sun_need": "part shade",
       "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
       "ranges": {
@@ -57,23 +59,8 @@
       }
     },
     {
-      "name": "African yam bean",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 15–35°C band; ~829 mm/yr rainfall matches its 800–1400 mm tolerance.",
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
-      "ranges": {
-        "tmin": 15,
-        "tmax": 35,
-        "rmin": 800,
-        "rmax": 1400,
-        "phmin": 4.5,
-        "phmax": 7
-      }
-    },
-    {
       "name": "Algerian oat",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 2–36°C band; ~829 mm/yr rainfall matches its 400–1100 mm tolerance.",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 2–36°C band; ~716 mm/yr rainfall matches its 400–1100 mm tolerance.",
       "water_need": "moderate",
       "sun_need": "part shade",
       "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
@@ -88,7 +75,7 @@
     },
     {
       "name": "apple",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 8–33°C band; ~829 mm/yr rainfall matches its 500–3200 mm tolerance.",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 8–33°C band; ~716 mm/yr rainfall matches its 500–3200 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
       "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
@@ -102,23 +89,8 @@
       }
     },
     {
-      "name": "apricot",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 7–40°C band; ~829 mm/yr rainfall matches its 800–1470 mm tolerance.",
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
-      "ranges": {
-        "tmin": 7,
-        "tmax": 40,
-        "rmin": 800,
-        "rmax": 1470,
-        "phmin": 5,
-        "phmax": 8
-      }
-    },
-    {
       "name": "asparagus",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 6–38°C band; ~829 mm/yr rainfall matches its 500–4000 mm tolerance.",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 6–38°C band; ~716 mm/yr rainfall matches its 500–4000 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
       "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
@@ -133,7 +105,7 @@
     },
     {
       "name": "asparagus bean",
-      "why": "your 15.9°C Apr–Sep mean sits inside its 14–38°C band; ~829 mm/yr rainfall matches its 650–4100 mm tolerance.",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 14–38°C band; ~716 mm/yr rainfall matches its 650–4100 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
       "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
@@ -144,6 +116,36 @@
         "rmax": 4100,
         "phmin": 4.3,
         "phmax": 7.5
+      }
+    },
+    {
+      "name": "barley",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 2–40°C band; ~716 mm/yr rainfall matches its 200–2000 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 2,
+        "tmax": 40,
+        "rmin": 200,
+        "rmax": 2000,
+        "phmin": 6,
+        "phmax": 8
+      }
+    },
+    {
+      "name": "basil",
+      "why": "your 17.1°C Apr–Sep mean sits inside its 7–36°C band; ~716 mm/yr rainfall matches its 600–4300 mm tolerance.",
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 7,
+        "tmax": 36,
+        "rmin": 600,
+        "rmax": 4300,
+        "phmin": 4.3,
+        "phmax": 8.2
       }
     }
   ],

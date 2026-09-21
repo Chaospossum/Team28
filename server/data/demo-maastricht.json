@@ -31,56 +31,120 @@
       "why": "your 15.9°C Apr–Sep mean sits inside its 5–36°C band; ~829 mm/yr rainfall matches its 530–1800 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 5,
+        "tmax": 36,
+        "rmin": 530,
+        "rmax": 1800,
+        "phmin": 5,
+        "phmax": 7.5
+      }
     },
     {
       "name": "african potato",
       "why": "part shade light suits typical garden culture here.",
       "water_need": "moderate",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": null,
+        "tmax": null,
+        "rmin": null,
+        "rmax": null,
+        "phmin": null,
+        "phmax": null
+      }
     },
     {
       "name": "African yam bean",
       "why": "your 15.9°C Apr–Sep mean sits inside its 15–35°C band; ~829 mm/yr rainfall matches its 800–1400 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 15,
+        "tmax": 35,
+        "rmin": 800,
+        "rmax": 1400,
+        "phmin": 4.5,
+        "phmax": 7
+      }
     },
     {
       "name": "Algerian oat",
       "why": "your 15.9°C Apr–Sep mean sits inside its 2–36°C band; ~829 mm/yr rainfall matches its 400–1100 mm tolerance.",
       "water_need": "moderate",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 2,
+        "tmax": 36,
+        "rmin": 400,
+        "rmax": 1100,
+        "phmin": 5,
+        "phmax": 8.2
+      }
     },
     {
       "name": "apple",
       "why": "your 15.9°C Apr–Sep mean sits inside its 8–33°C band; ~829 mm/yr rainfall matches its 500–3200 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 8,
+        "tmax": 33,
+        "rmin": 500,
+        "rmax": 3200,
+        "phmin": 4.5,
+        "phmax": 8
+      }
     },
     {
       "name": "apricot",
       "why": "your 15.9°C Apr–Sep mean sits inside its 7–40°C band; ~829 mm/yr rainfall matches its 800–1470 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 7,
+        "tmax": 40,
+        "rmin": 800,
+        "rmax": 1470,
+        "phmin": 5,
+        "phmax": 8
+      }
     },
     {
       "name": "asparagus",
       "why": "your 15.9°C Apr–Sep mean sits inside its 6–38°C band; ~829 mm/yr rainfall matches its 500–4000 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 6,
+        "tmax": 38,
+        "rmin": 500,
+        "rmax": 4000,
+        "phmin": 4.5,
+        "phmax": 8.2
+      }
     },
     {
       "name": "asparagus bean",
       "why": "your 15.9°C Apr–Sep mean sits inside its 14–38°C band; ~829 mm/yr rainfall matches its 650–4100 mm tolerance.",
       "water_need": "low",
       "sun_need": "part shade",
-      "risk": "Neighbourhood-scale match; watch pests and drainage locally."
+      "risk": "Neighbourhood-scale match; watch pests and drainage locally.",
+      "ranges": {
+        "tmin": 14,
+        "tmax": 38,
+        "rmin": 650,
+        "rmax": 4100,
+        "phmin": 4.3,
+        "phmax": 7.5
+      }
     }
   ],
   "shortlistCount": 30,
