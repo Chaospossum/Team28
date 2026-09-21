@@ -21,6 +21,38 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') })
 const DEMO_PATH = path.join(__dirname, 'data', 'demo-maastricht.json')
 const DEMO2050_PATH = path.join(__dirname, 'data', 'demo-maastricht-2050.json')
 const PORT = 43124
+const SAVE_DEMO_ALLOWED = process.env.RIGHT_PLANT_SAVE_DEMO === '1'
+const TTL_MS = 5 * 60 * 1000
+
+/** @type {Map<string, { expires: number, value: unknown }>} */
+const memoryCache = new Map()
+
+function cacheGet(key) {
+  const row = memoryCache.get(key)
+  if (!row) return null
+  if (Date.now() > row.expires) {
+    memoryCache.delete(key)
+    return null
+  }
+  return row.value
+}
+
+function cacheSet(key, value, ttlMs = TTL_MS) {
+  memoryCache.set(key, { expires: Date.now() + ttlMs, value })
+}
+
+function validateSiteProfile(siteProfile) {
+  if (!siteProfile || typeof siteProfile !== 'object') return 'siteProfile required'
+  const lat = Number(siteProfile.lat)
+  const lon = Number(siteProfile.lon)
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) return 'lat must be a valid latitude'
+  if (!Number.isFinite(lon) || lon < -180 || lon > 180) return 'lon must be a valid longitude'
+  if (siteProfile.area_m2 != null) {
+    const area = Number(siteProfile.area_m2)
+    if (!Number.isFinite(area) || area <= 0 || area > 1_000_000) return 'area_m2 out of range'
+  }
+  return null
+}
 
 loadEcoCrop()
 loadPollinatorCsv()
@@ -110,6 +142,11 @@ async function buildRecommendations(siteProfile, prefs, lang) {
         phmax: s.phmax,
         limn: s.limn,
         limx: s.limx,
+        gmin: s.gmin,
+        gmax: s.gmax,
+        topmn: s.topmn,
+        topmx: s.topmx,
+        lispy: s.lispy,
       },
     }
   })
@@ -118,8 +155,9 @@ async function buildRecommendations(siteProfile, prefs, lang) {
 
 app.post('/api/recommend', async (req, res) => {
   const { siteProfile, saveAsDemo, saveAsDemo2050, lang, prefs, zoneHours } = req.body ?? {}
-  if (!siteProfile?.lat || !siteProfile?.lon) {
-    return res.status(400).json({ error: 'siteProfile required' })
+  const profileError = validateSiteProfile(siteProfile)
+  if (profileError) {
+    return res.status(400).json({ error: profileError })
   }
 
   try {
@@ -128,19 +166,26 @@ app.post('/api/recommend', async (req, res) => {
       prefs,
       lang ?? 'en',
     )
-    const zonePlants = []
+    let zonePlants = []
     if (zoneHours && typeof zoneHours === 'object') {
-      for (const zone of ['full', 'part', 'shade']) {
-        const hours = zoneHours[zone]
-        if (hours == null) continue
-        const zProfile = {
-          ...siteProfile,
-          sun_hours_per_day: hours,
-          sun_class: sunClassFromHours(hours),
-        }
-        const zRec = await buildRecommendations(zProfile, prefs, lang ?? 'en')
-        zonePlants.push({ zone, sun_hours: hours, plants: zRec.plants.slice(0, 4) })
-      }
+      const zones = ['full', 'part', 'shade']
+      const jobs = zones
+        .map((zone) => {
+          const hours = zoneHours[zone]
+          if (hours == null) return null
+          const zProfile = {
+            ...siteProfile,
+            sun_hours_per_day: hours,
+            sun_class: sunClassFromHours(hours),
+          }
+          return buildRecommendations(zProfile, prefs, lang ?? 'en').then((zRec) => ({
+            zone,
+            sun_hours: hours,
+            plants: zRec.plants.slice(0, 4),
+          }))
+        })
+        .filter(Boolean)
+      zonePlants = await Promise.all(jobs)
     }
     const payload = {
       siteProfile,
@@ -150,8 +195,18 @@ app.post('/api/recommend', async (req, res) => {
       rankingSource: source,
       usedLlm,
     }
-    if (saveAsDemo) saveDemo(payload, DEMO_PATH)
-    if (saveAsDemo2050) saveDemo(payload, DEMO2050_PATH)
+    if (saveAsDemo) {
+      if (!SAVE_DEMO_ALLOWED) {
+        return res.status(403).json({ error: 'saveAsDemo disabled (set RIGHT_PLANT_SAVE_DEMO=1)' })
+      }
+      saveDemo(payload, DEMO_PATH)
+    }
+    if (saveAsDemo2050) {
+      if (!SAVE_DEMO_ALLOWED) {
+        return res.status(403).json({ error: 'saveAsDemo2050 disabled (set RIGHT_PLANT_SAVE_DEMO=1)' })
+      }
+      saveDemo(payload, DEMO2050_PATH)
+    }
     if (lang) payload.lang = lang
     res.json(payload)
   } catch (err) {
@@ -163,8 +218,9 @@ app.post('/api/recommend', async (req, res) => {
 
 app.post('/api/enrich', async (req, res) => {
   const profile = req.body?.siteProfile
-  if (!profile?.lat || !profile?.lon) {
-    return res.status(400).json({ error: 'siteProfile required' })
+  const profileError = validateSiteProfile(profile)
+  if (profileError) {
+    return res.status(400).json({ error: profileError })
   }
   const lat = profile.lat
   const lon = profile.lon
@@ -203,7 +259,11 @@ app.get('/api/fungi', async (req, res) => {
   const scientificName = req.query.scientificName ?? req.query.name
   const urban = req.query.urban === '1' || req.query.urban === 'true'
   if (!scientificName) return res.status(400).json({ error: 'scientificName required' })
+  const key = `gbif:${String(scientificName).toLowerCase()}:${urban ? '1' : '0'}`
+  const hit = cacheGet(key)
+  if (hit) return res.json(hit)
   const data = await fetchFungalTraits(String(scientificName), { urban })
+  cacheSet(key, data)
   res.json(data)
 })
 
@@ -213,13 +273,50 @@ app.get('/api/bag3d', async (req, res) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     return res.status(400).json({ error: 'lat and lon required' })
   }
+  const key = `bag3d:${lat.toFixed(4)}:${lon.toFixed(4)}`
+  const hit = cacheGet(key)
+  if (hit) return res.json(hit)
   const data = await fetchBuildings3dBag(lat, lon)
+  cacheSet(key, data)
   res.json(data)
+})
+
+app.get('/api/open-meteo/archive', async (req, res) => {
+  const lat = parseFloat(req.query.lat)
+  const lon = parseFloat(req.query.lon)
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return res.status(400).json({ error: 'lat and lon required' })
+  }
+  const key = `meteo:archive:${lat.toFixed(3)}:${lon.toFixed(3)}`
+  const hit = cacheGet(key)
+  if (hit) return res.json(hit)
+  const url =
+    `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
+    `&start_date=1991-01-01&end_date=2020-12-31` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,shortwave_radiation_sum` +
+    `&timezone=auto`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20_000)
+  try {
+    const upstream = await fetch(url, { signal: controller.signal })
+    clearTimeout(timer)
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: `open_meteo_${upstream.status}`, source_url: url })
+    }
+    const json = await upstream.json()
+    const payload = { ok: true, source_url: url, data: json }
+    cacheSet(key, payload)
+    res.json(payload)
+  } catch (err) {
+    clearTimeout(timer)
+    res.status(502).json({ error: String(err.message || err), source_url: url })
+  }
 })
 
 app.post('/api/why-near', async (req, res) => {
   const { siteProfile } = req.body ?? {}
-  if (!siteProfile) return res.status(400).json({ error: 'siteProfile required' })
+  const profileError = validateSiteProfile(siteProfile)
+  if (profileError) return res.status(400).json({ error: profileError })
   const shortlist = filterEcoCrop(siteProfile, 200)
   const misses = nearMisses(shortlist, siteProfile, 5)
   res.json({ nearMisses: misses })
@@ -227,7 +324,8 @@ app.post('/api/why-near', async (req, res) => {
 
 app.post('/api/why-plant', async (req, res) => {
   const { siteProfile, plantName } = req.body ?? {}
-  if (!siteProfile) return res.status(400).json({ error: 'siteProfile required' })
+  const profileError = validateSiteProfile(siteProfile)
+  if (profileError) return res.status(400).json({ error: profileError })
   const shortlist = filterEcoCrop(siteProfile, 500)
   const plant = shortlist.find((p) => p.name.toLowerCase() === String(plantName ?? '').toLowerCase())
   if (!plant) {
@@ -245,7 +343,8 @@ app.post('/api/why-plant', async (req, res) => {
 
 app.post('/api/guild', async (req, res) => {
   const { siteProfile, prefs } = req.body ?? {}
-  if (!siteProfile) return res.status(400).json({ error: 'siteProfile required' })
+  const profileError = validateSiteProfile(siteProfile)
+  if (profileError) return res.status(400).json({ error: profileError })
   let shortlist = filterEcoCrop(siteProfile, 50)
   if (prefs) shortlist = rankWithGoals(shortlist, siteProfile, prefs).slice(0, 30)
   res.json(suggestGuild(shortlist, prefs))

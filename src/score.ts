@@ -1,9 +1,19 @@
 import type { SiteProfile } from './types'
 
+export interface PlotScoreBreakdown {
+  sun: number
+  rain: number
+  ph: number
+  texture: number
+}
+
 export interface PlotScore {
   value: number
   verdict: string
-  breakdown: { sun: number; rain: number; ph: number; texture: number }
+  breakdown: PlotScoreBreakdown
+  /** All sub-scores are heuristic weights, not measured agronomic indices. */
+  heuristic: true
+  breakdownNote: string
 }
 
 function sunScore(hours: number | null) {
@@ -58,5 +68,12 @@ export function computePlotScore(profile: SiteProfile): PlotScore {
   if (profile.sun_class === 'shade') {
     verdict = 'Shaded plot — great for leafy greens, tough for sun-hungry tomatoes.'
   }
-  return { value, verdict, breakdown }
+  return {
+    value,
+    verdict,
+    breakdown,
+    heuristic: true,
+    breakdownNote:
+      'Heuristic: sun 30%, rain 25%, pH 25%, texture 20% — sub-scores 0–1 from site fields (estimate).',
+  }
 }
