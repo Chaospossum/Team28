@@ -62,163 +62,18 @@
   },
   "plants": [
     {
-      "name": "broad bean",
-      "why": "Accepted: growing-season 15.6°C vs plant 13–34°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 400–4300 mm (Open-Meteo, modeled)",
+      "name": "hyacinth bean",
+      "why": "Accepted: growing-season 15.6°C vs plant 3–38°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 200–2500 mm (Open-Meteo, modeled)",
       "why_structured": [
         {
           "factor": "temperature",
           "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 13–34°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+          "text": "Accepted: growing-season 15.6°C vs plant 3–38°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
         },
         {
           "factor": "rainfall",
           "ok": true,
-          "text": "Accepted: ~730 mm/yr vs 400–4300 mm (Open-Meteo, modeled)"
-        }
-      ],
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
-      "ranges": {
-        "tmin": 13,
-        "tmax": 34,
-        "rmin": 400,
-        "rmax": 4300,
-        "phmin": 4.5,
-        "phmax": 8.4,
-        "limn": null,
-        "limx": null
-      }
-    },
-    {
-      "name": "asparagus",
-      "why": "Accepted: growing-season 15.6°C vs plant 6–38°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 500–4000 mm (Open-Meteo, modeled)",
-      "why_structured": [
-        {
-          "factor": "temperature",
-          "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 6–38°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
-        },
-        {
-          "factor": "rainfall",
-          "ok": true,
-          "text": "Accepted: ~730 mm/yr vs 500–4000 mm (Open-Meteo, modeled)"
-        }
-      ],
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
-      "ranges": {
-        "tmin": 6,
-        "tmax": 38,
-        "rmin": 500,
-        "rmax": 4000,
-        "phmin": 4.5,
-        "phmax": 8.2,
-        "limn": null,
-        "limx": null
-      }
-    },
-    {
-      "name": "basil",
-      "why": "Accepted: growing-season 15.6°C vs plant 7–36°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 600–4300 mm (Open-Meteo, modeled)",
-      "why_structured": [
-        {
-          "factor": "temperature",
-          "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 7–36°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
-        },
-        {
-          "factor": "rainfall",
-          "ok": true,
-          "text": "Accepted: ~730 mm/yr vs 600–4300 mm (Open-Meteo, modeled)"
-        }
-      ],
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
-      "ranges": {
-        "tmin": 7,
-        "tmax": 36,
-        "rmin": 600,
-        "rmax": 4300,
-        "phmin": 4.3,
-        "phmax": 8.2,
-        "limn": null,
-        "limx": null
-      }
-    },
-    {
-      "name": "black-eyed pea",
-      "why": "Accepted: growing-season 15.6°C vs plant 10–40°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 400–4100 mm (Open-Meteo, modeled)",
-      "why_structured": [
-        {
-          "factor": "temperature",
-          "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 10–40°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
-        },
-        {
-          "factor": "rainfall",
-          "ok": true,
-          "text": "Accepted: ~730 mm/yr vs 400–4100 mm (Open-Meteo, modeled)"
-        }
-      ],
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
-      "ranges": {
-        "tmin": 10,
-        "tmax": 40,
-        "rmin": 400,
-        "rmax": 4100,
-        "phmin": 4.3,
-        "phmax": 8.8,
-        "limn": null,
-        "limx": null
-      }
-    },
-    {
-      "name": "branching onion",
-      "why": "Accepted: growing-season 15.6°C vs plant 6–30°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 700–2500 mm (Open-Meteo, modeled)",
-      "why_structured": [
-        {
-          "factor": "temperature",
-          "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 6–30°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
-        },
-        {
-          "factor": "rainfall",
-          "ok": true,
-          "text": "Accepted: ~730 mm/yr vs 700–2500 mm (Open-Meteo, modeled)"
-        }
-      ],
-      "water_need": "low",
-      "sun_need": "part shade",
-      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
-      "ranges": {
-        "tmin": 6,
-        "tmax": 30,
-        "rmin": 700,
-        "rmax": 2500,
-        "phmin": 5.5,
-        "phmax": 8.5,
-        "limn": null,
-        "limx": null
-      }
-    },
-    {
-      "name": "broccoli",
-      "why": "Accepted: growing-season 15.6°C vs plant 3–35°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 350–2000 mm (Open-Meteo, modeled)",
-      "why_structured": [
-        {
-          "factor": "temperature",
-          "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 3–35°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
-        },
-        {
-          "factor": "rainfall",
-          "ok": true,
-          "text": "Accepted: ~730 mm/yr vs 350–2000 mm (Open-Meteo, modeled)"
+          "text": "Accepted: ~730 mm/yr vs 200–2500 mm (Open-Meteo, modeled)"
         }
       ],
       "water_need": "low",
@@ -226,23 +81,122 @@
       "risk": "Soil pH was estimated nearby — confirm with a soil test.",
       "ranges": {
         "tmin": 3,
-        "tmax": 35,
-        "rmin": 350,
-        "rmax": 2000,
-        "phmin": 5.5,
-        "phmax": 8.5,
+        "tmax": 38,
+        "rmin": 200,
+        "rmax": 2500,
+        "phmin": 4.5,
+        "phmax": 8,
         "limn": null,
-        "limx": null
+        "limx": null,
+        "gmin": 70,
+        "gmax": 300,
+        "lispy": "annual, perennial"
       }
     },
     {
-      "name": "buckwheat",
-      "why": "Accepted: growing-season 15.6°C vs plant 7–40°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 400–1300 mm (Open-Meteo, modeled)",
+      "name": "sunflower",
+      "why": "Accepted: growing-season 15.6°C vs plant 5–45°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 300–1600 mm (Open-Meteo, modeled)",
       "why_structured": [
         {
           "factor": "temperature",
           "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 7–40°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+          "text": "Accepted: growing-season 15.6°C vs plant 5–45°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+        },
+        {
+          "factor": "rainfall",
+          "ok": true,
+          "text": "Accepted: ~730 mm/yr vs 300–1600 mm (Open-Meteo, modeled)"
+        }
+      ],
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
+      "ranges": {
+        "tmin": 5,
+        "tmax": 45,
+        "rmin": 300,
+        "rmax": 1600,
+        "phmin": 5.5,
+        "phmax": 8,
+        "limn": null,
+        "limx": null,
+        "gmin": 70,
+        "gmax": 200,
+        "lispy": "annual"
+      }
+    },
+    {
+      "name": "marsh marigold",
+      "why": "Accepted: growing-season 15.6°C vs plant 2–27°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 400–1100 mm (Open-Meteo, modeled)",
+      "why_structured": [
+        {
+          "factor": "temperature",
+          "ok": true,
+          "text": "Accepted: growing-season 15.6°C vs plant 2–27°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+        },
+        {
+          "factor": "rainfall",
+          "ok": true,
+          "text": "Accepted: ~730 mm/yr vs 400–1100 mm (Open-Meteo, modeled)"
+        }
+      ],
+      "water_need": "moderate",
+      "sun_need": "part shade",
+      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
+      "ranges": {
+        "tmin": 2,
+        "tmax": 27,
+        "rmin": 400,
+        "rmax": 1100,
+        "phmin": 4.8,
+        "phmax": 7.3,
+        "limn": null,
+        "limx": null,
+        "gmin": 120,
+        "gmax": 180,
+        "lispy": "perennial"
+      }
+    },
+    {
+      "name": "parsnip",
+      "why": "Accepted: growing-season 15.6°C vs plant 5–25°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 300–1100 mm (Open-Meteo, modeled)",
+      "why_structured": [
+        {
+          "factor": "temperature",
+          "ok": true,
+          "text": "Accepted: growing-season 15.6°C vs plant 5–25°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+        },
+        {
+          "factor": "rainfall",
+          "ok": true,
+          "text": "Accepted: ~730 mm/yr vs 300–1100 mm (Open-Meteo, modeled)"
+        }
+      ],
+      "water_need": "moderate",
+      "sun_need": "part shade",
+      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
+      "ranges": {
+        "tmin": 5,
+        "tmax": 25,
+        "rmin": 300,
+        "rmax": 1100,
+        "phmin": 5.8,
+        "phmax": 8.3,
+        "limn": null,
+        "limx": null,
+        "gmin": 80,
+        "gmax": 150,
+        "lispy": "annual, biennial"
+      }
+    },
+    {
+      "name": "sea kale",
+      "why": "Accepted: growing-season 15.6°C vs plant 4–28°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 400–1300 mm (Open-Meteo, modeled)",
+      "why_structured": [
+        {
+          "factor": "temperature",
+          "ok": true,
+          "text": "Accepted: growing-season 15.6°C vs plant 4–28°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
         },
         {
           "factor": "rainfall",
@@ -254,24 +208,91 @@
       "sun_need": "part shade",
       "risk": "Soil pH was estimated nearby — confirm with a soil test.",
       "ranges": {
-        "tmin": 7,
-        "tmax": 40,
+        "tmin": 4,
+        "tmax": 28,
         "rmin": 400,
         "rmax": 1300,
-        "phmin": 4.4,
-        "phmax": 7.5,
+        "phmin": 6,
+        "phmax": 8,
         "limn": null,
-        "limx": null
+        "limx": null,
+        "gmin": 120,
+        "gmax": 180,
+        "lispy": "perennial"
       }
     },
     {
-      "name": "cabbage",
-      "why": "Accepted: growing-season 15.6°C vs plant 7–32°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 300–2500 mm (Open-Meteo, modeled)",
+      "name": "Silver beet",
+      "why": "Accepted: growing-season 15.6°C vs plant 4–35°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 500–1000 mm (Open-Meteo, modeled)",
       "why_structured": [
         {
           "factor": "temperature",
           "ok": true,
-          "text": "Accepted: growing-season 15.6°C vs plant 7–32°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+          "text": "Accepted: growing-season 15.6°C vs plant 4–35°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+        },
+        {
+          "factor": "rainfall",
+          "ok": true,
+          "text": "Accepted: ~730 mm/yr vs 500–1000 mm (Open-Meteo, modeled)"
+        }
+      ],
+      "water_need": "moderate",
+      "sun_need": "part shade",
+      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
+      "ranges": {
+        "tmin": 4,
+        "tmax": 35,
+        "rmin": 500,
+        "rmax": 1000,
+        "phmin": 5.5,
+        "phmax": 7.5,
+        "limn": null,
+        "limx": null,
+        "gmin": 160,
+        "gmax": 240,
+        "lispy": "biennial"
+      }
+    },
+    {
+      "name": "spinach",
+      "why": "Accepted: growing-season 15.6°C vs plant 2–27°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 300–1700 mm (Open-Meteo, modeled)",
+      "why_structured": [
+        {
+          "factor": "temperature",
+          "ok": true,
+          "text": "Accepted: growing-season 15.6°C vs plant 2–27°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
+        },
+        {
+          "factor": "rainfall",
+          "ok": true,
+          "text": "Accepted: ~730 mm/yr vs 300–1700 mm (Open-Meteo, modeled)"
+        }
+      ],
+      "water_need": "low",
+      "sun_need": "part shade",
+      "risk": "Soil pH was estimated nearby — confirm with a soil test.",
+      "ranges": {
+        "tmin": 2,
+        "tmax": 27,
+        "rmin": 300,
+        "rmax": 1700,
+        "phmin": 5.3,
+        "phmax": 8.3,
+        "limn": null,
+        "limx": null,
+        "gmin": 40,
+        "gmax": 120,
+        "lispy": "annual"
+      }
+    },
+    {
+      "name": "pot marigold",
+      "why": "Accepted: growing-season 15.6°C vs plant 8–30°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled); Accepted: ~730 mm/yr vs 300–2500 mm (Open-Meteo, modeled)",
+      "why_structured": [
+        {
+          "factor": "temperature",
+          "ok": true,
+          "text": "Accepted: growing-season 15.6°C vs plant 8–30°C (Open-Meteo 2045–2050 (EC_Earth3P_HR, estimate), modeled)"
         },
         {
           "factor": "rainfall",
@@ -283,14 +304,17 @@
       "sun_need": "part shade",
       "risk": "Soil pH was estimated nearby — confirm with a soil test.",
       "ranges": {
-        "tmin": 7,
-        "tmax": 32,
+        "tmin": 8,
+        "tmax": 30,
         "rmin": 300,
         "rmax": 2500,
-        "phmin": 5,
+        "phmin": 4.5,
         "phmax": 8.3,
         "limn": null,
-        "limx": null
+        "limx": null,
+        "gmin": 120,
+        "gmax": 180,
+        "lispy": "annual, biennial"
       }
     }
   ],
