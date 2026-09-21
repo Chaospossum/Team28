@@ -1,3 +1,4 @@
+import { frostAndGddFromDaily } from './climateMetrics'
 import type { SiteProfile } from './types'
 
 const CLIMATE_START = '2019-01-01'
@@ -95,6 +96,8 @@ export async function fetchClimateProfile(
       ? growingTemps.reduce((a, b) => a + b, 0) / growingTemps.length
       : null
 
+  const frost_gdd = frostAndGddFromDaily(times, tmin, tmax, CLIMATE_LABEL)
+
   const profile: SiteProfile = {
     lat,
     lon,
@@ -105,6 +108,7 @@ export async function fetchClimateProfile(
     rain_mm_year,
     temp_growing_season,
     climate_period: CLIMATE_LABEL,
+    frost_gdd,
     sun_class_source: 'radiation-based estimate (archive sunshine often inflated)',
     soil_ph: null,
     clay_pct: null,

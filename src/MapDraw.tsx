@@ -10,6 +10,7 @@ import { polygon as turfPolygon } from '@turf/helpers'
 import iconUrl from 'leaflet/dist/images/marker-icon.png'
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png'
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png'
+import type { PlotBuilding } from './types'
 
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl, iconRetinaUrl, shadowUrl })
@@ -36,12 +37,29 @@ function radiationColor(mj: number | null) {
   return '#90be6d'
 }
 
+function rectangleToRing(layer: L.Rectangle): number[][] {
+  const b = layer.getBounds()
+  const sw = b.getSouthWest()
+  const ne = b.getNorthEast()
+  const nw = L.latLng(ne.lat, sw.lng)
+  const se = L.latLng(sw.lat, ne.lng)
+  return [
+    [sw.lng, sw.lat],
+    [se.lng, se.lat],
+    [ne.lng, ne.lat],
+    [nw.lng, nw.lat],
+    [sw.lng, sw.lat],
+  ]
+}
+
 interface Props {
   onSelect: (sel: PlotSelection) => void
   demoLat: number
   demoLon: number
   triggerDemo: number
   initialRing?: number[][] | null
+  initialBuildings?: PlotBuilding[] | null
+  onBuildingsChange: (b: PlotBuilding[]) => void
   radiationMj: number | null
   layers: { radiation: boolean; pdok: boolean; ndvi: boolean }
 }
@@ -52,16 +70,23 @@ export function MapDraw({
   demoLon,
   triggerDemo,
   initialRing,
+  initialBuildings,
+  onBuildingsChange,
   radiationMj,
   layers,
 }: Props) {
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.FeatureGroup | null>(null)
+  const buildingsRef = useRef<L.FeatureGroup | null>(null)
   const plotLayerRef = useRef<L.Polygon | null>(null)
+  const buildingIdMap = useRef<Map<L.Layer, string>>(new Map())
   const pdokRef = useRef<L.ImageOverlay | null>(null)
   const ndviRef = useRef<L.ImageOverlay | null>(null)
   const onSelectRef = useRef(onSelect)
+  const onBuildingsRef = useRef(onBuildingsChange)
+  const buildingsStateRef = useRef<PlotBuilding[]>([])
   onSelectRef.current = onSelect
+  onBuildingsRef.current = onBuildingsChange
 
   const stylePlot = (layer: L.Polygon) => {
     const fill = layers.radiation ? radiationColor(radiationMj) : '#52b788'
@@ -71,6 +96,25 @@ export function MapDraw({
       fillColor: fill,
       fillOpacity: layers.radiation ? 0.45 : 0.25,
     })
+  }
+
+  const emitBuildings = () => {
+    const group = buildingsRef.current
+    if (!group) return
+    const next: PlotBuilding[] = []
+    group.eachLayer((layer) => {
+      const id = buildingIdMap.current.get(layer) ?? crypto.randomUUID()
+      if (layer instanceof L.Rectangle) {
+        const existing = buildingsStateRef.current.find((b) => b.id === id)
+        next.push({
+          id,
+          ring: rectangleToRing(layer),
+          height_m: existing?.height_m ?? 10,
+        })
+      }
+    })
+    buildingsStateRef.current = next
+    onBuildingsRef.current(next)
   }
 
   const updatePdokOverlay = () => {
@@ -119,6 +163,23 @@ export function MapDraw({
     }
   }
 
+  const syncBuildingLayers = (list: PlotBuilding[]) => {
+    const map = mapRef.current
+    const group = buildingsRef.current
+    if (!map || !group) return
+    group.clearLayers()
+    buildingIdMap.current.clear()
+    for (const b of list) {
+      if (!b.ring?.length) continue
+      const layer = L.rectangle(
+        L.latLngBounds(b.ring.map(([lng, la]) => [la, lng] as [number, number])),
+        { color: '#495057', weight: 2, fillColor: '#6c757d', fillOpacity: 0.35 },
+      )
+      buildingIdMap.current.set(layer, b.id)
+      group.addLayer(layer)
+    }
+  }
+
   useEffect(() => {
     const map = L.map('map', { center: [demoLat, demoLon], zoom: 14 })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -127,21 +188,37 @@ export function MapDraw({
     }).addTo(map)
 
     const drawn = new L.FeatureGroup()
+    const buildingsGroup = new L.FeatureGroup()
     map.addLayer(drawn)
+    map.addLayer(buildingsGroup)
     layerRef.current = drawn
+    buildingsRef.current = buildingsGroup
 
     const drawControl = new L.Control.Draw({
       draw: {
         polygon: { allowIntersection: false, showArea: true },
+        rectangle: { showArea: false },
         polyline: false,
-        rectangle: false,
         circle: false,
         circlemarker: false,
         marker: false,
       },
-      edit: { featureGroup: drawn },
+      edit: { featureGroup: drawn, remove: true },
     })
     map.addControl(drawControl)
+
+    const buildingEdit = new L.Control.Draw({
+      draw: {
+        polygon: false,
+        rectangle: { showArea: false },
+        polyline: false,
+        circle: false,
+        circlemarker: false,
+        marker: false,
+      },
+      edit: { featureGroup: buildingsGroup, remove: true },
+    })
+    map.addControl(buildingEdit)
 
     const emitFromLayer = (layer: L.Polygon) => {
       plotLayerRef.current = layer
@@ -158,14 +235,33 @@ export function MapDraw({
 
     map.on(L.Draw.Event.CREATED, (e: L.LeafletEvent) => {
       const event = e as L.DrawEvents.Created
-      drawn.clearLayers()
-      const layer = event.layer as L.Polygon
-      drawn.addLayer(layer)
-      emitFromLayer(layer)
+      if (event.layerType === 'rectangle') {
+        const layer = event.layer as L.Rectangle
+        const id = crypto.randomUUID()
+        buildingIdMap.current.set(layer, id)
+        buildingsGroup.addLayer(layer)
+        emitBuildings()
+        return
+      }
+      if (event.layerType === 'polygon') {
+        drawn.clearLayers()
+        const layer = event.layer as L.Polygon
+        drawn.addLayer(layer)
+        emitFromLayer(layer)
+      }
     })
 
-    map.on(L.Draw.Event.EDITED, () => {
+    map.on(L.Draw.Event.EDITED, (e: L.LeafletEvent) => {
+      const event = e as L.DrawEvents.Edited
+      event.layers.eachLayer((layer) => {
+        if (layer instanceof L.Polygon && drawn.hasLayer(layer)) emitFromLayer(layer)
+      })
+      emitBuildings()
+    })
+
+    map.on(L.Draw.Event.DELETED, () => {
       drawn.eachLayer((layer) => emitFromLayer(layer as L.Polygon))
+      emitBuildings()
     })
 
     map.on('moveend', () => updatePdokOverlay())
@@ -176,6 +272,14 @@ export function MapDraw({
       mapRef.current = null
     }
   }, [demoLat, demoLon])
+
+  useEffect(() => {
+    if (initialBuildings?.length) {
+      buildingsStateRef.current = initialBuildings
+      syncBuildingLayers(initialBuildings)
+      onBuildingsRef.current(initialBuildings)
+    }
+  }, [initialBuildings])
 
   useEffect(() => {
     if (plotLayerRef.current) stylePlot(plotLayerRef.current)

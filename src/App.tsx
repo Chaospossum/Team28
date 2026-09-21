@@ -17,8 +17,19 @@ import { readShareFromUrl } from './share'
 import { defaultPrefs, type SharePayload } from './shareState'
 import { effortHoursLabel } from './effort'
 import { UserGoals } from './UserGoals'
+import { FungiPanel } from './FungiPanel'
+import { SunHeatmap, zoneHoursSummary } from './SunHeatmap'
 import { WhyNotPanel } from './WhyNotPanel'
-import type { LoadingKey, PlantRecommendation, RecommendResponse, SiteProfile } from './types'
+import { clearSkyFractionFromProfile } from './shadow/clearSky'
+import type { SunGridResult } from './shadow/gridCore'
+import type {
+  LoadingKey,
+  PlotBuilding,
+  PlantRecommendation,
+  RecommendResponse,
+  SiteProfile,
+  SunZonePlants,
+} from './types'
 
 const DEMO_LAT = 50.85
 const DEMO_LON = 5.69
@@ -78,6 +89,11 @@ export default function App() {
   const [bag3dNote, setBag3dNote] = useState<string | null>(null)
   const [guildNote, setGuildNote] = useState<string | null>(null)
   const [restoreRing, setRestoreRing] = useState<number[][] | null>(null)
+  const [buildings, setBuildings] = useState<PlotBuilding[]>([])
+  const [initialBuildings, setInitialBuildings] = useState<PlotBuilding[] | null>(null)
+  const [sunGrid, setSunGrid] = useState<SunGridResult | null>(null)
+  const [zonePlants, setZonePlants] = useState<SunZonePlants[]>([])
+  const [selectedPlant, setSelectedPlant] = useState<PlantRecommendation | null>(null)
 
   const setLoad = (key: LoadingKey, on: boolean) =>
     setLoading((prev) => ({ ...prev, [key]: on }))
@@ -93,7 +109,11 @@ export default function App() {
   const runRecommend = useCallback(
     async (
       siteProfile: SiteProfile,
-      opts?: { saveAsDemo?: boolean; saveAsDemo2050?: boolean },
+      opts?: {
+        saveAsDemo?: boolean
+        saveAsDemo2050?: boolean
+        zoneHours?: Record<string, number>
+      },
     ): Promise<RecommendResponse | null> => {
       setLoad('plants', true)
       try {
@@ -106,19 +126,23 @@ export default function App() {
           saveAsDemo2050: opts?.saveAsDemo2050,
           lang,
           prefs,
+          zoneHours: opts?.zoneHours,
         }),
         })
         if (!res.ok) throw new Error(`recommend_${res.status}`)
         const data: RecommendResponse = await res.json()
         setProfile(data.siteProfile)
         setPlants(data.plants)
+        setZonePlants(data.zonePlants ?? [])
         if (!scenario2050) {
           setPresentProfile(data.siteProfile)
           setPresentPlants(data.plants)
         }
         setRankingNote(
           data.usedLlm
-            ? 'Ranked with LLM'
+            ? data.rankingSource === 'llm_rephrase_only'
+              ? 'LLM rephrase only (facts from EcoCrop rules)'
+              : 'Ranked with LLM'
             : `Rule-based EcoCrop shortlist (${data.rankingSource ?? 'fallback'})`,
         )
         if (data.fallback) setError('Live ranking failed — showing cached demo results.')
@@ -142,7 +166,14 @@ export default function App() {
   )
 
   const enrichAndRecommend = useCallback(
-    async (base: SiteProfile, opts?: { saveAsDemo?: boolean; saveAsDemo2050?: boolean }) => {
+    async (
+      base: SiteProfile,
+      opts?: {
+        saveAsDemo?: boolean
+        saveAsDemo2050?: boolean
+        zoneHours?: Record<string, number>
+      },
+    ) => {
       setLoad('soil', true)
       setLoad('pdok', true)
       try {
@@ -163,6 +194,50 @@ export default function App() {
         setLoad('pdok', false)
         return await runRecommend(base, opts)
       }
+    },
+    [runRecommend],
+  )
+
+  const computeSunGridAsync = useCallback(
+    (climateProfile: SiteProfile, ring: number[][] | null, blds: PlotBuilding[]) => {
+      if (!ring?.length) {
+        setSunGrid(null)
+        return
+      }
+      const { fraction, label } = clearSkyFractionFromProfile(
+        climateProfile.sun_hours_per_day,
+        climateProfile.sun_hours_archive ?? null,
+      )
+      const worker = new Worker(new URL('./shadow/sunGrid.worker.ts', import.meta.url), {
+        type: 'module',
+      })
+      worker.postMessage({
+        polygonRing: ring,
+        originLat: climateProfile.lat,
+        originLon: climateProfile.lon,
+        buildings: blds,
+        clearSkyFraction: fraction,
+      })
+      worker.onmessage = (ev: MessageEvent<SunGridResult>) => {
+        const grid = { ...ev.data, label: `${ev.data.label}; ${label}` }
+        setSunGrid(grid)
+        worker.terminate()
+        const summaries = zoneHoursSummary(grid.cells)
+        const zoneHours = Object.fromEntries(
+          summaries.filter((s) => s.hours != null).map((s) => [s.zone, s.hours as number]),
+        )
+        const dominant = summaries.sort((a, b) => (b.hours ?? 0) - (a.hours ?? 0))[0]
+        const domHours = dominant?.hours ?? climateProfile.sun_hours_per_day
+        const patched: SiteProfile = {
+          ...climateProfile,
+          sun_hours_per_day: domHours,
+          sun_class: sunClass(domHours),
+          sun_class_source: grid.label,
+        }
+        setProfile((p) => (p ? { ...p, ...patched } : patched))
+        void runRecommend(patched, { zoneHours })
+      }
+      worker.onerror = () => worker.terminate()
     },
     [runRecommend],
   )
@@ -190,6 +265,11 @@ export default function App() {
         if (bag?.ok) setBag3dNote(`3DBAG: ${bag.buildings.length} buildings in 100 m (measured, ${bag.fetched_at})`)
         else setBag3dNote('3DBAG: no data here for this buffer')
         const rec = await enrichAndRecommend(climateProfile)
+        computeSunGridAsync(
+          rec?.siteProfile ?? climateProfile,
+          sel.polygon ?? polygonRing,
+          buildings,
+        )
         if (rec?.siteProfile) {
           const g = await fetch('/api/guild', {
             method: 'POST',
@@ -216,8 +296,13 @@ export default function App() {
         }
       }
     },
-    [enrichAndRecommend],
+    [buildings, computeSunGridAsync, enrichAndRecommend, polygonRing],
   )
+
+  useEffect(() => {
+    if (!profile || !polygonRing?.length) return
+    computeSunGridAsync(profile, polygonRing, buildings)
+  }, [buildings])
 
   const loadDemo = async () => {
     setDemoTrigger((n) => n + 1)
@@ -291,6 +376,10 @@ export default function App() {
       setPolygonRing(shared.polygon)
       setRestoreRing(shared.polygon)
     }
+    if (shared?.buildings?.length) {
+      setBuildings(shared.buildings)
+      setInitialBuildings(shared.buildings)
+    }
     if (shared?.demo) void loadDemo()
   }, [])
 
@@ -299,6 +388,7 @@ export default function App() {
         lat: profile.lat,
         lon: profile.lon,
         polygon: polygonRing ?? undefined,
+        buildings: buildings.length ? buildings : undefined,
         prefs,
         demo: false,
       }
@@ -312,6 +402,8 @@ export default function App() {
         demoLon={DEMO_LON}
         triggerDemo={demoTrigger}
         initialRing={restoreRing}
+        initialBuildings={initialBuildings}
+        onBuildingsChange={setBuildings}
         radiationMj={profile?.radiation_mj ?? null}
         layers={mapLayers}
       />
@@ -344,6 +436,33 @@ export default function App() {
         <p className="meta note">{effortHoursLabel(prefs)}</p>
         <LayerToggles lang={lang} layers={mapLayers} setLayers={setMapLayers} />
         {bag3dNote && <p className="meta note">{bag3dNote}</p>}
+        <p className="meta note">
+          Draw rectangles on the map to add buildings (height below). Saved in share link.
+        </p>
+        {buildings.length > 0 && (
+          <div className="card">
+            <h2>Buildings (estimate heights)</h2>
+            {buildings.map((b) => (
+              <label key={b.id} className="status-row">
+                {b.id.slice(0, 8)}… height (m)
+                <input
+                  type="number"
+                  min={3}
+                  max={80}
+                  value={b.height_m}
+                  onChange={(e) =>
+                    setBuildings((prev) =>
+                      prev.map((x) =>
+                        x.id === b.id ? { ...x, height_m: Number(e.target.value) } : x,
+                      ),
+                    )
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        )}
+        <SunHeatmap grid={sunGrid} />
         {guildNote && <p className="meta note">{guildNote}</p>}
 
         <div className="card">
@@ -394,6 +513,23 @@ export default function App() {
               </dd>
               <dt>Growing-season temp</dt>
               <dd>{fmt(profile.temp_growing_season, 1)} °C</dd>
+              {profile.frost_gdd && (
+                <>
+                  <dt>Frost days / yr (median)</dt>
+                  <dd>
+                    {profile.frost_gdd.frost_days_median ?? '—'} ({profile.frost_gdd.source},{' '}
+                    {profile.frost_gdd.data_kind})
+                  </dd>
+                  <dt>GDD base 5°C (Apr–Sep sum)</dt>
+                  <dd>{profile.frost_gdd.gdd_base5_growing ?? '—'}</dd>
+                </>
+              )}
+              {profile.climate_2050_delta && (
+                <>
+                  <dt>2050 delta</dt>
+                  <dd className="meta">{profile.climate_2050_delta.note}</dd>
+                </>
+              )}
               <dt>Soil pH</dt>
               <dd>{fmt(profile.soil_ph, 1)}</dd>
               {profile.soil_resolution_note && (
@@ -456,7 +592,14 @@ export default function App() {
             {rankingNote && <p className="meta">{rankingNote}</p>}
             <div className="plant-grid">
               {plants.map((p) => (
-                <div className="plant-card card" key={p.name}>
+                <div
+                  className="plant-card card"
+                  key={p.name}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedPlant(p)}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedPlant(p)}
+                >
                   <h3>{p.name}</h3>
                   <p>{p.why}</p>
                   {p.why_structured && p.why_structured.length > 0 && (
@@ -478,6 +621,25 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {zonePlants.length > 0 && (
+          <div className="card">
+            <h2>By sun zone <span className="estimate-tag">estimate</span></h2>
+            {zonePlants.map((z) => (
+              <div key={z.zone}>
+                <p className="meta">
+                  <strong>{z.zone}</strong> ~{fmt(z.sun_hours, 1)} h/day effective
+                </p>
+                <p>{z.plants.map((p) => p.name).join(', ')}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <FungiPanel
+          scientificName={selectedPlant?.name ?? plants[0]?.name ?? null}
+          urban={profile?.site_context?.class === 'urban'}
+        />
 
         {profile && <WhyNotPanel profile={profile} />}
 
