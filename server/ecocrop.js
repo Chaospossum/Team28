@@ -1,10 +1,4 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import { whySentence, buildStructuredWhy } from './why.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CSV_PATH = path.join(__dirname, 'data', 'EcoCrop_DB.csv')
 
 const PREFERRED_KEYWORDS = [
   'tomato',
@@ -93,8 +87,8 @@ function parseCsvLine(line) {
   return out
 }
 
-export function loadEcoCrop() {
-  const raw = fs.readFileSync(CSV_PATH, 'utf8')
+/** Parse EcoCrop_DB.csv text (Node reads it from disk, the browser bundles it). */
+export function setEcoCropCsv(raw) {
   const lines = raw.split(/\r?\n/).filter(Boolean)
   const header = parseCsvLine(lines[0])
   rows = lines.slice(1).map((line) => {
@@ -105,7 +99,7 @@ export function loadEcoCrop() {
     })
     return row
   })
-  console.log(`[ecocrop] loaded ${rows.length} species`)
+  return rows.length
 }
 
 function num(v) {

@@ -1,42 +1,21 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { cacheRead, cacheWrite } from './cacheStore.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CACHE_DIR = path.join(__dirname, 'cache')
 const GBIF_DATASET = '744edc21-8dd2-474e-8a0b-b8c3d56a3c2d'
 const GBIF_URL = `https://api.gbif.org/v1/occurrence/search?datasetKey=${GBIF_DATASET}&limit=5`
 
-function cachePath(scientific) {
+function cacheName(scientific) {
   const safe = scientific.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 80)
-  return path.join(CACHE_DIR, `fungi-${safe}.json`)
+  return `fungi-${safe}`
 }
 
-function readCache(file) {
-  if (!fs.existsSync(file)) return null
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch {
-    return null
-  }
-}
-
-function writeCache(file, payload) {
-  if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true })
-  fs.writeFileSync(
-    file,
-    JSON.stringify(
-      {
-        ...payload,
-        _cache: {
-          origin_url: payload.source_url,
-          fetched_at: new Date().toISOString().slice(0, 10),
-        },
-      },
-      null,
-      2,
-    ),
-  )
+function writeCache(name, payload) {
+  cacheWrite(name, {
+    ...payload,
+    _cache: {
+      origin_url: payload.source_url,
+      fetched_at: new Date().toISOString().slice(0, 10),
+    },
+  })
 }
 
 function parseMycorrhizaType(occurrence) {
@@ -55,8 +34,8 @@ export async function fetchFungalTraits(scientificName, opts = {}) {
   if (!scientificName?.trim()) {
     return { ok: false, error: 'name_required', panel: 'no data here' }
   }
-  const file = cachePath(scientificName)
-  const cached = readCache(file)
+  const file = cacheName(scientificName)
+  const cached = cacheRead(file)
   if (cached && !opts.refresh) return cached
 
   const url = `${GBIF_URL}&scientificName=${encodeURIComponent(scientificName)}`
@@ -84,7 +63,7 @@ export async function fetchFungalTraits(scientificName, opts = {}) {
       source_url: url,
       data_kind: 'modeled',
       confidence: urban ? 'low in urban/sealed soils' : 'moderate (literature synthesis)',
-      panel: types.size ? types.join(', ') : 'no data here',
+      panel: types.size ? [...types].join(', ') : 'no data here',
     }
     writeCache(file, payload)
     return payload

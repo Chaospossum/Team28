@@ -1,9 +1,4 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CACHE_DIR = path.join(__dirname, 'cache')
+import { cacheRead, cacheWrite } from './cacheStore.js'
 
 const memoryCache = new Map()
 const TIMEOUT_MS = 18_000
@@ -29,20 +24,13 @@ function cacheKey(lat, lon) {
 }
 
 function readDiskCache(key) {
-  const file = path.join(CACHE_DIR, `soil-${key.replace(',', '_')}.json`)
-  if (!fs.existsSync(file)) return null
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'))
-  } catch {
-    return null
-  }
+  return cacheRead(`soil-${key.replace(',', '_')}`)
 }
 
 const SOILGRIDS_URL =
   'https://rest.isric.org/soilgrids/v2.0/properties/query'
 
 function writeDiskCache(key, data) {
-  const file = path.join(CACHE_DIR, `soil-${key.replace(',', '_')}.json`)
   const withMeta = {
     ...data,
     _cache: {
@@ -51,7 +39,7 @@ function writeDiskCache(key, data) {
       query_key: key,
     },
   }
-  fs.writeFileSync(file, JSON.stringify(withMeta))
+  cacheWrite(`soil-${key.replace(',', '_')}`, withMeta)
 }
 
 function scaleProperty(layer) {

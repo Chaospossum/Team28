@@ -1,13 +1,6 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 let interactions = []
 
-export function loadInteractions() {
-  const raw = fs.readFileSync(path.join(__dirname, 'data', 'interactions.csv'), 'utf8')
+export function setInteractionsCsv(raw) {
   interactions = []
   for (const line of raw.split(/\r?\n/).slice(1)) {
     if (!line.trim()) continue

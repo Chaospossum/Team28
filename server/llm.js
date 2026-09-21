@@ -9,6 +9,9 @@ function stripFences(text) {
     .trim()
 }
 
+/** Browser builds have no process.env, so the LLM rephrase is simply off there. */
+const env = globalThis.process?.env ?? {}
+
 const LANG_NAMES = { en: 'English', nl: 'Dutch', fr: 'French', de: 'German' }
 
 function buildRephrasePrompt(plants, lang = 'en') {
@@ -43,7 +46,7 @@ function whyIsSafe(originalFacts, newWhy) {
 }
 
 async function callAnthropicRephrase(plants, lang) {
-  const key = process.env.ANTHROPIC_API_KEY
+  const key = env.ANTHROPIC_API_KEY
   if (!key) return null
   const prompt = buildRephrasePrompt(plants, lang)
   const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -65,7 +68,7 @@ async function callAnthropicRephrase(plants, lang) {
 }
 
 async function callOpenAIRephrase(plants, lang) {
-  const key = process.env.OPENAI_API_KEY
+  const key = env.OPENAI_API_KEY
   if (!key) return null
   const prompt = buildRephrasePrompt(plants, lang)
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -104,13 +107,13 @@ export async function rankPlants(siteProfile, shortlist, lang = 'en') {
   }
 
   const basePlants = shortlistFallback(shortlist, siteProfile, 8)
-  const hasKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY
+  const hasKey = env.ANTHROPIC_API_KEY || env.OPENAI_API_KEY
   if (!hasKey) {
     return { plants: basePlants, usedLlm: false, source: 'ecocrop_fallback' }
   }
 
   try {
-    const text = process.env.ANTHROPIC_API_KEY
+    const text = env.ANTHROPIC_API_KEY
       ? await callAnthropicRephrase(basePlants, lang)
       : await callOpenAIRephrase(basePlants, lang)
     if (!text) return { plants: basePlants, usedLlm: false, source: 'ecocrop_fallback' }

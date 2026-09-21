@@ -266,7 +266,7 @@ export const MapDraw = forwardRef<MapDrawHandle, Props>(function MapDraw(
       return
     }
     const bounds = plot.getBounds()
-    const url = '/ndvi-sample.svg'
+    const url = `${import.meta.env.BASE_URL}ndvi-sample.svg`
     if (ndviRef.current) {
       ndviRef.current.setBounds(bounds)
     } else {
